@@ -1,0 +1,32 @@
+export const statusStyles = {
+  completed: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20',
+  'in-progress': 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20',
+  active: 'bg-orange-50 text-orange-700 ring-1 ring-orange-600/20',
+  upcoming: 'bg-slate-100 text-slate-500 ring-1 ring-slate-300',
+  pending: 'bg-slate-100 text-slate-500 ring-1 ring-slate-300',
+  high: 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20',
+  medium: 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20',
+  low: 'bg-slate-100 text-slate-600 ring-1 ring-slate-300',
+  paid: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20',
+  overdue: 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20',
+  open: 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20',
+  resolved: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20',
+  active_contract: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20',
+  'renewal-due': 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20',
+};
+
+export const statusLabels = {
+  completed: 'Completed',
+  'in-progress': 'In Progress',
+  active: 'In Progress',
+  upcoming: 'Upcoming',
+  pending: 'Pending',
+  high: 'High Priority',
+  medium: 'Medium Priority',
+  low: 'Low Priority',
+  paid: 'Paid',
+  overdue: 'Overdue',
+  open: 'Open',
+  resolved: 'Resolved',
+  'renewal-due': 'Renewal Due',
+};
