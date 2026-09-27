@@ -1,4 +1,43 @@
+import { contractProfile } from './contractProfile';
+
+/* Mock marketing dataset for Marketing > Existing Customers (corporate login) */
+
+const MASTER_GCV_DEFAULT = 9300; // kcal/SCM, matches ExistingCustomers.jsx's default Master GCV
+
+function parseNumber(value) {
+  const match = String(value).match(/[\d.]+/);
+  return match ? Number(match[0]) : 0;
+}
+
+/* Wheels India is the account behind the live Industrial Customer Portal login - every contractual
+   field below is derived from contractProfile so the marketing view never drifts out of sync with it. */
+const wheelsIndiaDcqMmbtu = parseNumber(contractProfile.terms.dcq);
+const wheelsIndiaDcqScm = Math.round((wheelsIndiaDcqMmbtu * 252000) / MASTER_GCV_DEFAULT);
+const latestAmendment = contractProfile.history[contractProfile.history.length - 1];
+
+const portalLinkedCustomer = {
+  id: 'CUST-WIL01',
+  name: contractProfile.company.name,
+  contractNumber: contractProfile.contractNumber,
+  type: 'Industrial',
+  industry: 'Automotive Components',
+  location: 'Padi, Chennai',
+  contractStatus: contractProfile.status === 'active' ? 'Active' : 'Renewal due',
+  expiry: `Active under ${latestAmendment.status} (effective ${latestAmendment.effectivePeriod})`,
+  dcq: wheelsIndiaDcqScm,
+  email: contractProfile.company.email,
+  phone: contractProfile.company.phone,
+  segment: 'Strategic',
+  preferredChannel: 'Email',
+  engagementScore: 92,
+  lastCampaign: 'Contract Amendment Briefing',
+  campaignOutcome: 'Acknowledged',
+  /* Flags the record whose customerKey (contractNumber) also drives the customer-facing Connection Status live thread */
+  portalLinked: true,
+};
+
 export const existingCustomers = [
+  portalLinkedCustomer,
   {
     id: 'CUST-1001',
     name: 'Apex Foods Pvt Ltd',

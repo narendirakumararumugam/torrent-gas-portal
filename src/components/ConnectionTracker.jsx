@@ -54,7 +54,7 @@ function SummaryPanel() {
           <CalendarDays className="h-5 w-5 text-emerald-600" />
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-400">Est. Activation Date</p>
+          <p className="text-xs font-medium text-slate-400">Commissioning Date</p>
           <p className="text-lg font-bold text-[#2D3748]">{trackerEta}</p>
         </div>
       </div>
@@ -96,8 +96,6 @@ function TimelineEventCard({ event, isLast }) {
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
           <span>{event.date}</span>
-          <span className="text-slate-300">•</span>
-          <span>Officer: {event.officer}</span>
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-500">
           {event.note}{' '}
@@ -147,13 +145,6 @@ function ConnectionTracker() {
 
       <SummaryPanel />
 
-      <CustomerCollaborationPanel
-        customerKey={contractProfile.contractNumber}
-        customerName={contractProfile.company.name}
-        viewerLabel="Customer"
-        authorName={contractProfile.company.name}
-      />
-
       <Card className="p-6">
         <p className="mb-6 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Milestone Timeline</p>
         <div>
@@ -162,6 +153,13 @@ function ConnectionTracker() {
           ))}
         </div>
       </Card>
+
+      <CustomerCollaborationPanel
+        customerKey={contractProfile.contractNumber}
+        customerName={contractProfile.company.name}
+        viewerLabel="Customer"
+        authorName={contractProfile.company.name}
+      />
     </div>
   );
 }

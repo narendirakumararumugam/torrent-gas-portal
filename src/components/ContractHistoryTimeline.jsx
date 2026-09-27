@@ -36,14 +36,8 @@ function ContractHistoryTimeline({ history = [], currentTerms }) {
           <p className="mt-1 text-sm font-semibold text-slate-900">{latestEntry.executedOn}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Revisions</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{revisionCount} amendment{revisionCount === 1 ? '' : 's'}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Current band</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">
-            {currentTerms?.dcq} / {currentTerms?.mdcq}
-          </p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Amendments</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">{revisionCount}</p>
         </div>
       </div>
 

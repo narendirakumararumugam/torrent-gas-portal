@@ -49,7 +49,7 @@ export function getExposureSummary({ lastCycle, unbilledCycle, availableSecurity
   const lastFortnightBillValue = lastCycle.invoiced;
   const currentUnbilledValue = unbilledCycle.usageToDate;
   const paymentsReceived = lastCycle.paid;
-  const totalOutstanding = currentUnbilledValue + pendingVerificationPayment.amount + 662;
+  const totalOutstanding = currentUnbilledValue + pendingVerificationPayment.amount + 299;
   const deficit = Math.max(0, totalOutstanding - availableSecurity);
 
   return {

@@ -21,7 +21,7 @@ function ContractSummary({ onDownload, onShowToast }) {
             </span>
           </div>
           <p className="mt-1.5 max-w-2xl text-sm text-slate-500">
-            Verified commercial gas supply agreement details, revisions, and downloadable letters for Torrent Gas portal records.
+            Verified industrial gas supply agreement details, revisions, and downloadable letters for Torrent Gas portal records.
           </p>
         </div>
 
@@ -40,7 +40,7 @@ function ContractSummary({ onDownload, onShowToast }) {
             className="flex items-center gap-2 rounded-lg border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
           >
             <FolderOpen className="h-4 w-4" aria-hidden="true" />
-            Download Signed Letters
+            Download Side Letters
           </button>
         </div>
       </div>

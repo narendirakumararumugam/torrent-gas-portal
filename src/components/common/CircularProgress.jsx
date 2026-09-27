@@ -23,7 +23,7 @@ function CircularProgress({ value, size = 72, strokeWidth = 7, label }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-lg font-bold text-slate-800">{value}%</span>
-        {label && <span className="text-[10px] font-medium text-slate-400">{label}</span>}
+        {label && <span className="text-[10px] font-medium text-slate-400"></span>}
       </div>
     </div>
   );

@@ -1,16 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
+  AlertTriangle,
   ArrowRightLeft,
   BarChart3,
-  Bot,
   CalendarClock,
   CircleDollarSign,
   Factory,
   Gauge,
+  Info,
   LineChart,
-  MessageSquareText,
-  Send,
   ShieldCheck,
   Sparkles,
   TrendingDown,
@@ -18,10 +17,11 @@ import {
   Wallet,
 } from 'lucide-react';
 import Card from '../common/Card';
+import Badge from '../common/Badge';
 import SectionHeading from '../common/SectionHeading';
 import ReportChart from './ReportChart';
 import { contractProfile } from '../../data/contractProfile';
-import { availablePaymentSecurity, billingCycles, currentInvoiceBreakdown, currentUnbilledCycle, lastClearedPayment } from '../../data/billsPayments';
+import { BILLING_REFERENCE_DATE, availablePaymentSecurity, billingCycles, currentInvoiceBreakdown, lastClearedPayment } from '../../data/billsPayments';
 import { dailyConsumption, takeOrPayQuota } from '../../data/mgoFlowAnalysis';
 
 function round1(value) {
@@ -92,7 +92,9 @@ const billingAverage = billingCycles.length ? round2(billingSpendTotal / billing
 const latestCycle = billingCycles[billingCycles.length - 1];
 const priorCycle = billingCycles[billingCycles.length - 2];
 const latestCycleVariance = latestCycle.invoiced - billingAverage;
-const projectedNextCycle = round2(((latestCycle.invoiced + priorCycle.invoiced) / 2) * 1.02);
+/* Forecast basis: historical average across every recorded cycle, uplifted by the contract's trend factor (not just the last two cycles) */
+const CYCLE_TREND_FACTOR = 1.02;
+const projectedNextCycle = round2(billingAverage * CYCLE_TREND_FACTOR);
 
 const julSpend = billingCycles.slice(0, 2).reduce((total, cycle) => total + cycle.invoiced, 0);
 const augSpend = billingCycles.slice(2, 4).reduce((total, cycle) => total + cycle.invoiced, 0);
@@ -101,14 +103,46 @@ const monthTrend = pctChange(augSpend, julSpend);
 const outstandingLatest = latestCycle.invoiced - latestCycle.paid;
 const securityCoverPercent = latestCycle.invoiced ? round1((availablePaymentSecurity / latestCycle.invoiced) * 100) : 0;
 
+const invoiceStatus = latestCycle.paid >= latestCycle.invoiced
+  ? 'paid'
+  : new Date(BILLING_REFERENCE_DATE) > new Date(latestCycle.dueDate)
+    ? 'overdue'
+    : 'pending';
+const invoiceStatusDetail = {
+  paid: `Invoice ${latestCycle.label} has been paid in full.`,
+  pending: `Invoice ${latestCycle.label} is awaiting settlement, due ${latestCycle.dueDate}.`,
+  overdue: `Invoice ${latestCycle.label} is overdue - payment was due ${latestCycle.dueDate}.`,
+}[invoiceStatus];
+
 const allowanceRemaining = takeOrPayQuota.annualQuotaDays - takeOrPayQuota.usedDaysYTD;
-const healthScore = Math.max(
-  0,
-  Math.min(
-    100,
-    100 - (latestCycle.paid === 0 ? 12 : 0) - (excessShare > 5 ? 8 : 0) - (securityCoverPercent < 30 ? 10 : 0) + (allowanceRemaining > 10 ? 4 : 0),
-  ),
-);
+/* 90% of DCQ is the customer's MGO obligation; the monthly average draw must stay at or above it */
+const mgoCompliant = operationalAverage >= minimumObligation;
+const mgoShortfall = round2(Math.max(minimumObligation - operationalAverage, 0));
+
+const healthFactors = [
+  { label: 'Baseline score', delta: 100, detail: 'Starting executive health baseline.' },
+  {
+    label: 'Payment standing',
+    delta: latestCycle.paid === 0 ? -12 : 0,
+    detail: latestCycle.paid === 0 ? 'Latest invoice is fully unpaid.' : 'Latest invoice has at least a partial payment recorded.',
+  },
+  {
+    label: 'Excess slab exposure',
+    delta: excessShare > 5 ? -8 : 0,
+    detail: `Excess slab is ${excessShare}% of the current invoice${excessShare > 5 ? ' (above the 5% threshold)' : ' (within the 5% threshold)'}.`,
+  },
+  {
+    label: 'Security cover',
+    delta: securityCoverPercent < 30 ? -10 : 0,
+    detail: `Available security covers ${formatDecimal(securityCoverPercent, 1)}% of the latest bill${securityCoverPercent < 30 ? ' (below the 30% threshold)' : ''}.`,
+  },
+  {
+    label: 'Maintenance allowance',
+    delta: allowanceRemaining > 10 ? 4 : 0,
+    detail: `${allowanceRemaining} shutdown/maintenance days remain${allowanceRemaining > 10 ? ', reducing off-take risk' : ''}.`,
+  },
+];
+const healthScore = Math.max(0, Math.min(100, healthFactors.reduce((total, factor) => total + factor.delta, 0)));
 
 const operationLabels = dailyConsumption.map((day) => day.date.slice(5));
 const operationSeries = [
@@ -146,18 +180,93 @@ const personaTabs = [
   },
 ];
 
-function MetricCard({ icon: Icon, label, value, detail, tone = 'text-slate-900' }) {
+function MetricCard({ icon: Icon, label, value, detail, tone = 'text-slate-900', badge }) {
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <p className={`mt-2 text-lg font-semibold ${tone}`}>{value}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <p className={`text-lg font-semibold ${tone}`}>{value}</p>
+            {badge}
+          </div>
         </div>
         <Icon className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
       </div>
       <p className="mt-2 text-xs leading-5 text-slate-500">{detail}</p>
     </Card>
+  );
+}
+
+/* Contract health MetricCard variant - clickable/hoverable, opens a breakdown popover of contributing score factors */
+function ContractHealthCard({ score, tone, factors }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const handleClick = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) setOpen(false);
+    };
+    const handleKey = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <Card className="p-4">
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          onMouseEnter={() => setOpen(true)}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          className="w-full text-left"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Contract health</p>
+              <p className={`mt-2 text-lg font-semibold ${tone}`}>{score}/100</p>
+            </div>
+            <ShieldCheck className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
+          </div>
+          <p className="mt-2 flex items-center gap-1 text-xs leading-5 text-slate-500">
+            Payment, security cover, and slab exposure rolled into one score.
+            <Info className="h-3 w-3 shrink-0 text-slate-400" aria-hidden="true" />
+          </p>
+        </button>
+      </Card>
+
+      {open && (
+        <div role="dialog" aria-label="Contract health breakdown" className="absolute left-0 top-full z-20 mt-2 w-80 max-w-[90vw] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Score breakdown</p>
+          <div className="mt-2 space-y-2">
+            {factors.map((factor) => (
+              <div key={factor.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 p-2.5">
+                <div>
+                  <p className="text-xs font-semibold text-slate-800">{factor.label}</p>
+                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{factor.detail}</p>
+                </div>
+                <span className={`shrink-0 text-xs font-semibold ${factor.delta > 0 ? 'text-emerald-600' : factor.delta < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                  {factor.delta > 0 ? '+' : ''}{factor.delta}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-sm font-semibold text-slate-900">
+            <span>Total score</span>
+            <span>{score}/100</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -174,9 +283,9 @@ function OperationsView() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={Activity}
-          label="Daily gas draw"
+          label="Cumulative current month consumption"
           value={`${formatDecimal(operationalTotal, 1)} MMBTU`}
-          detail="Ten-day operational sample from the live meter profile."
+          detail={`Cumulative draw from ${dailyConsumption[0].date} to ${dailyConsumption[dailyConsumption.length - 1].date} in the current billing cycle.`}
         />
         <MetricCard
           icon={Gauge}
@@ -197,6 +306,29 @@ function OperationsView() {
           detail="Use scheduled low-load days to protect the monthly off-take average."
         />
       </div>
+
+      <Card className={`p-4 ${mgoCompliant ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${mgoCompliant ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+              {mgoCompliant ? <ShieldCheck className="h-4.5 w-4.5" aria-hidden="true" /> : <AlertTriangle className="h-4.5 w-4.5" aria-hidden="true" />}
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${mgoCompliant ? 'text-emerald-900' : 'text-rose-900'}`}>
+                {mgoCompliant ? 'Minimum off-take obligation is on track' : 'Monthly average is below the MGO obligation'}
+              </p>
+              <p className={`text-xs ${mgoCompliant ? 'text-emerald-700' : 'text-rose-700'}`}>
+                Obligation is 90% of DCQ = {minimumObligation} MMBTU/day. Current monthly average is {formatDecimal(operationalAverage, 1)} MMBTU/day.
+              </p>
+            </div>
+          </div>
+          {!mgoCompliant && (
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200">
+              Shortfall {formatDecimal(mgoShortfall, 1)} MMBTU/day
+            </span>
+          )}
+        </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-[1.18fr_0.82fr]">
         <Card className="p-4">
@@ -284,7 +416,8 @@ function FinanceView() {
           icon={Wallet}
           label="Latest invoice"
           value={formatCurrency(latestCycle.invoiced)}
-          detail={`Invoice ${latestCycle.label} is currently unpaid and awaiting settlement.`}
+          badge={<Badge tone={invoiceStatus} />}
+          detail={invoiceStatusDetail}
         />
         <MetricCard
           icon={CircleDollarSign}
@@ -303,7 +436,7 @@ function FinanceView() {
           icon={ArrowRightLeft}
           label="Next-cycle forecast"
           value={formatCurrency(projectedNextCycle)}
-          detail="Projection assumes the current spend pattern continues with modest smoothing."
+          detail={`Historical average of ${formatCurrency(billingAverage)} across all recorded cycles, uplifted by the contract's ${Math.round((CYCLE_TREND_FACTOR - 1) * 100)}% trend factor.`}
         />
       </div>
 
@@ -409,12 +542,10 @@ function ManagementView() {
           detail="Latest fortnight versus the previous fortnight."
           tone={fortnightTrend >= 0 ? 'text-rose-600' : 'text-emerald-700'}
         />
-        <MetricCard
-          icon={ShieldCheck}
-          label="Contract health"
-          value={`${healthScore}/100`}
-          detail="Payment standing, security cover, and slab exposure rolled into one executive view."
+        <ContractHealthCard
+          score={healthScore}
           tone={healthScore >= 80 ? 'text-emerald-700' : healthScore >= 65 ? 'text-amber-700' : 'text-rose-600'}
+          factors={healthFactors}
         />
       </div>
 
@@ -494,147 +625,6 @@ function ManagementView() {
   );
 }
 
-function generateAssistantReply(message) {
-  const normalized = message.toLowerCase();
-
-  if (normalized.includes('bill') && (normalized.includes('higher') || normalized.includes('why') || normalized.includes('increase') || normalized.includes('spike'))) {
-    return `The latest bill is elevated because the invoice mix includes ${currentExcessRow.quantity.toLocaleString('en-IN')} MMBTU in the Excess slab, which adds ${formatCurrency(currentExcessRow.amount)} to the total. The fastest way to reduce the next cycle is to flatten peak draw days, keep daily usage below ${contractMdcq} MMBTU where possible, and pull more volume into the MGO band.`;
-  }
-
-  if (normalized.includes('minimum') || normalized.includes('off-take') || normalized.includes('offtake') || normalized.includes('take-or-pay') || normalized.includes('penalt') || normalized.includes('shutdown') || normalized.includes('maintenance')) {
-    return `Your monthly protection floor is ${minimumObligation} MMBTU/day, based on 90% of the ${contractDcq} MMBTU DCQ. You still have ${allowanceRemaining} shutdown/maintenance days left this year. If a low-load period is coming, place it inside those allowance days so the average draw stays protected and take-or-pay penalties are avoided.`;
-  }
-
-  if (normalized.includes('forecast') || normalized.includes('next bill') || normalized.includes('upcoming cycle') || normalized.includes('future bill')) {
-    return `Based on the recent fortnights, the next billing cycle is projected near ${formatCurrency(projectedNextCycle)}. That forecast assumes the current draw pattern continues. If peak days are shaved below ${contractMdcq} MMBTU, the actual bill should move down further.`;
-  }
-
-  if (normalized.includes('contract') || normalized.includes('dcq') || normalized.includes('mdcq') || normalized.includes('rate')) {
-    return `The contract is currently active with a DCQ of ${contractDcq} MMBTU and an MDCQ of ${contractMdcq} MMBTU. The latest invoice is split across MGO, Non-MGO, and Excess slabs; the assistant can explain the commercial effect of each clause, the load-shaping options, and the settlement impact.`;
-  }
-
-  return `I can help interpret the contract, bill spikes, off-take risk, and forecasted spend. For example, ask why the bill is higher, how to avoid Excess slab charges, or how to use shutdown allowance days to protect the minimum monthly average.`;
-}
-
-function ContractAssistantCard() {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      text: `I am the AI Contract Assistant for ${contractProfile.company.name}. Ask me about the bill, contract terms, off-take risk, or how to optimize the daily draw pattern.`,
-    },
-  ]);
-  const [draft, setDraft] = useState('');
-
-  const quickPrompts = [
-    'Why is my bill higher than expected?',
-    'Will I miss the minimum off-take obligation?',
-    'How can I reduce excess slab charges?',
-    'What is the next billing cycle forecast?',
-  ];
-
-  const sendMessage = (text) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-
-    setMessages((current) => [
-      ...current,
-      { role: 'user', text: trimmed },
-      { role: 'assistant', text: generateAssistantReply(trimmed) },
-    ]);
-    setDraft('');
-  };
-
-  return (
-    <Card className="border-emerald-200 bg-white/95 p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Chat Assistance</p>
-          <h3 className="mt-1 text-lg font-semibold text-slate-900">AI Contract Assistant</h3>
-          <p className="mt-1 text-sm text-slate-500">Built from contract terms, usage behaviour, and billing history for industrial customers.</p>
-        </div>
-        <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">Live guidance</div>
-      </div>
-
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Contract</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{contractProfile.contractNumber}</p>
-        </div>
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Latest bill</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(latestCycle.invoiced)}</p>
-        </div>
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Maintenance days left</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{allowanceRemaining} days</p>
-        </div>
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Security cover</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(availablePaymentSecurity)}</p>
-        </div>
-        <div className="rounded-xl bg-slate-50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Live usage to date</p>
-          <p className="mt-1 text-sm font-semibold text-slate-900">{currentUnbilledCycle.usageToDate.toLocaleString('en-IN')}</p>
-          <p className="text-[11px] text-slate-500">As of {currentUnbilledCycle.asOf}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {quickPrompts.map((prompt) => (
-          <button
-            key={prompt}
-            type="button"
-            onClick={() => sendMessage(prompt)}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
-          >
-            {prompt}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        {messages.map((message, index) => (
-          <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm leading-6 ${message.role === 'user' ? 'bg-emerald-600 text-white' : 'bg-white text-slate-700 shadow-sm ring-1 ring-slate-200'}`}>
-              {message.text}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <form
-        className="mt-4 flex items-center gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          sendMessage(draft);
-        }}
-      >
-        <div className="relative flex-1">
-          <MessageSquareText className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-          <input
-            type="text"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask about billing spikes, contract terms, or optimization steps"
-            className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-          />
-        </div>
-        <button
-          type="submit"
-          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
-        >
-          <Send className="h-4 w-4" aria-hidden="true" />
-          Send
-        </button>
-      </form>
-
-      <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-800">
-        The assistant grounds its answers in the active contract, the latest invoice, and the current draw profile. It can explain slab triggers, penalty risk, and the maintenance-day strategy used to protect the average.
-      </div>
-    </Card>
-  );
-}
-
 function PersonaBasedDashboards() {
   const [activePersona, setActivePersona] = useState('operations');
 
@@ -643,38 +633,34 @@ function PersonaBasedDashboards() {
       <SectionHeading
         eyebrow="Executive Intelligence"
         title="Persona-Based Dashboards"
-        description="Role-specific views for industrial gas operations, finance, and management, plus a contract-aware assistant for real-time guidance."
+        description="Role-specific views for industrial gas operations, finance, and management. Use the AI Contract Assistant button (bottom-right) for real-time guidance."
       />
 
-      <div className="grid gap-4 xl:grid-cols-[1.32fr_0.68fr]">
-        <Card className="overflow-hidden">
-          <div className="flex flex-wrap gap-2 border-b border-slate-200 px-4 pt-4 sm:px-5">
-            {personaTabs.map((tab) => {
-              const active = activePersona === tab.key;
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActivePersona(tab.key)}
-                  className={`inline-flex items-center gap-2 rounded-t-xl border px-3 py-2 text-sm font-semibold transition ${active ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700'}`}
-                >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+      <Card className="overflow-hidden">
+        <div className="flex flex-wrap gap-2 border-b border-slate-200 px-4 pt-4 sm:px-5">
+          {personaTabs.map((tab) => {
+            const active = activePersona === tab.key;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActivePersona(tab.key)}
+                className={`inline-flex items-center gap-2 rounded-t-xl border px-3 py-2 text-sm font-semibold transition ${active ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-transparent text-slate-500 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700'}`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-          <div className="px-4 py-5 sm:px-5">
-            {activePersona === 'operations' && <OperationsView />}
-            {activePersona === 'finance' && <FinanceView />}
-            {activePersona === 'management' && <ManagementView />}
-          </div>
-        </Card>
-
-        <ContractAssistantCard />
-      </div>
+        <div className="px-4 py-5 sm:px-5">
+          {activePersona === 'operations' && <OperationsView />}
+          {activePersona === 'finance' && <FinanceView />}
+          {activePersona === 'management' && <ManagementView />}
+        </div>
+      </Card>
     </div>
   );
 }

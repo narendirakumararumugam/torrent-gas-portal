@@ -1,0 +1,281 @@
+<div class="planner">
+  <header>
+    <div>
+      <div class="crumb">
+        Marketing Portal <i class="ri-arrow-right-s-line"></i> Feasibility Check
+        <i class="ri-arrow-right-s-line"></i> Chennai GIS Feasibility
+      </div>
+      <h1>Chennai Pipeline Route Feasibility</h1>
+      <p>Plan a proposed gas pipeline along real Chennai road corridors.</p>
+    </div>
+    <span class="live"
+      ><i class="ri-global-line"></i> OpenStreetMap + OSRM</span
+    >
+  </header>
+  <main>
+    <aside class="control-panel">
+      <div class="panel-heading">
+        <i class="ri-route-line"></i>
+        <div>
+          <h2>Route input</h2>
+          <span>1. Select source · 2. Place destination</span>
+        </div>
+      </div>
+      <label
+        >Existing DRS<select
+          [ngModel]="selectedDrs.id"
+          (ngModelChange)="selectDrs($event)"
+        >
+          <option *ngFor="let drs of drsList" [value]="drs.id">
+            {{ drs.id }} · {{ drs.name }}
+          </option>
+        </select></label
+      >
+      <div class="drs-info">
+        <b>{{ selectedDrs.location }}</b
+        ><span
+          ><i class="ri-speed-line"></i> Operating pressure
+          {{ outletPressure }} bar</span
+        ><span
+          ><i class="ri-pie-chart-2-line"></i> Current utilization
+          {{ selectedDrs.utilization }}%</span
+        >
+      </div>
+      <div class="split">
+        <label
+          >DRS capacity
+          <div class="unit">
+            <input type="number" [(ngModel)]="capacity" /><em>SCM/hr</em>
+          </div></label
+        ><label
+          >Min. pressure
+          <div class="unit">
+            <input type="number" [(ngModel)]="minPressure" step=".1" /><em
+              >bar</em
+            >
+          </div></label
+        >
+      </div>
+      <div class="split">
+        <label
+          >Outlet pressure
+          <div class="unit">
+            <input type="number" [(ngModel)]="outletPressure" step=".1" /><em>bar</em>
+          </div></label
+        ><label
+          >Pipeline diameter
+          <select [(ngModel)]="selectedDiameter" (ngModelChange)="customDiameter = null">
+            <option *ngFor="let size of diameterOptions" [ngValue]="size">{{ size }} mm</option>
+            <option [ngValue]="0">Custom</option>
+          </select></label
+        >
+      </div>
+      <label *ngIf="selectedDiameter === 0">Custom pipeline diameter<div class="unit"><input type="number" [(ngModel)]="customDiameter"><em>mm</em></div></label>
+      <div class="destination">
+        <div>
+          <span>Gas requirement location</span><b>{{ destinationName }}</b
+          ><small
+            >Lat {{ destination.lat | number: "1.4-4" }} · Lng
+            {{ destination.lng | number: "1.4-4" }}</small
+          >
+        </div>
+        <button
+          (click)="activateDestination()"
+          [class.active]="selectingDestination"
+        >
+          <i class="ri-map-pin-line"></i>
+          {{ selectingDestination ? "Click map…" : "Select location" }}
+        </button>
+      </div>
+      <label
+        >Required gas demand
+        <div class="unit">
+          <input type="number" [(ngModel)]="demand" /><em>SCM/hr</em>
+        </div></label
+      >
+      <div class="split">
+        <label
+          >Operating hours
+          <div class="unit">
+            <input type="number" [(ngModel)]="operatingHours" /><em>hrs/day</em>
+          </div></label
+        ><label
+          >Future demand
+          <div class="unit">
+            <input type="number" [(ngModel)]="futureDemand" /><em>SCM/hr</em>
+          </div></label
+        >
+      </div>
+      <div class="daily">
+        <i class="ri-flashlight-line"></i
+        ><span
+          >Daily gas requirement<b
+            >{{ dailyRequirement | number }} SCM/day</b
+          ></span
+        >
+      </div>
+      <details class="engineering-inputs">
+        <summary><i class="ri-settings-3-line"></i> Hydraulic model inputs</summary>
+        <div class="split"><label>Pipe material<select [(ngModel)]="material"><option>PE100</option><option>PE80</option><option>Steel</option></select></label><label>Roughness<div class="unit"><input type="number" [(ngModel)]="roughness" step=".001"><em>mm</em></div></label></div>
+        <div class="split"><label>Gas temperature<div class="unit"><input type="number" [(ngModel)]="gasTemperature"><em>°C</em></div></label><label>Gas gravity<div class="unit"><input type="number" [(ngModel)]="gasGravity" step=".01"><em>SG</em></div></label></div>
+        <div class="split"><label>Elevation rise<div class="unit"><input type="number" [(ngModel)]="elevation"><em>m</em></div></label><label>Fittings / valves<div class="unit"><input type="number" [(ngModel)]="fittings"><em>qty</em></div></label></div>
+      </details>
+      <button class="find" (click)="findRoutes()" [disabled]="loadingRoutes">
+        <i
+          [class]="loadingRoutes ? 'ri-loader-4-line spin' : 'ri-route-line'"
+        ></i>
+        {{ loadingRoutes ? "Finding road routes…" : "Find feasible routes" }}
+      </button>
+      <p
+        class="message"
+        [class.notice]="selectingDestination"
+        *ngIf="routeError"
+      >
+        <i class="ri-information-line"></i> {{ routeError }}
+      </p>
+      <div class="network">
+        <h3>DRS network capacity</h3>
+        <div>
+          <span>Existing demand</span
+          ><b>{{ existingDemand | number }} SCM/hr</b>
+        </div>
+        <div>
+          <span>Available capacity</span
+          ><b>{{ availableCapacity | number }} SCM/hr</b>
+        </div>
+        <div>
+          <span>Proposed demand</span><b>{{ totalDemand | number }} SCM/hr</b>
+        </div>
+        <div class="remaining">
+          <span>Remaining capacity</span
+          ><b [class.fail-text]="remainingCapacity < 0"
+            >{{ remainingCapacity | number }} SCM/hr</b
+          >
+        </div>
+      </div>
+    </aside>
+    <section class="map-shell">
+      <div id="chennai-route-map" class="real-map"></div>
+      <div class="map-title">
+        <b>Chennai, Tamil Nadu</b><span>Real road network</span>
+      </div>
+      <div class="map-key">
+        <span><i class="drs-dot"></i> Existing DRS</span
+        ><span><i class="target-dot"></i> Gas requirement</span
+        ><span><i class="route-line"></i> Proposed pipeline route</span>
+      </div>
+      <div class="map-note" *ngIf="!routes.length && !selectingDestination">
+        <i class="ri-road-map-line"></i
+        ><span
+          >Select a DRS and target, then find routes following Chennai
+          roads.</span
+        >
+      </div>
+    </section>
+  </main>
+  <section class="route-options" *ngIf="routes.length">
+    <div class="section-heading">
+      <div>
+        <h2>Feasible road-route options</h2>
+        <p>
+          Route geometry is returned by OSRM along actual mapped road corridors.
+        </p>
+      </div>
+      <span class="recommend"
+        ><i class="ri-star-fill"></i>
+        {{
+          feasible(routes[0])
+            ? "Recommended route highlighted"
+            : "Capacity / pressure review required"
+        }}</span
+      >
+    </div>
+    <div class="route-list">
+      <button
+        *ngFor="let route of routes; let i = index"
+        class="route-card"
+        [class.selected]="selectedRoute?.id === route.id"
+        (click)="selectRoute(route)"
+      >
+        <div class="route-top">
+          <b
+            >{{ i === 0 ? "★ " : "" }}Route {{ route.id }}
+            {{ i === 0 ? "· Recommended" : "· Alternative" }}</b
+          ><span
+            [class.pass]="hydraulicStatus(route) === 'PASS'"
+            [class.borderline]="hydraulicStatus(route) === 'BORDERLINE'"
+            [class.fail]="hydraulicStatus(route) === 'FAIL'"
+            >{{ hydraulicStatus(route) }}</span
+          >
+        </div>
+        <div class="route-values">
+          <span
+            ><small>Distance</small><b>{{ route.distance }} km</b></span
+          ><span
+            ><small>Pressure drop</small
+            ><b>{{ pressureDrop(route) }} bar</b></span
+          ><span
+            ><small>Destination pressure</small
+            ><b>{{ destinationPressure(route) }} bar</b></span
+          >
+        </div>
+        <p>
+          {{
+            feasible(route)
+              ? "Hydraulically feasible at the selected flow and pressure target."
+              : "Fails capacity or minimum destination-pressure requirement."
+          }}
+        </p>
+      </button>
+    </div>
+  </section>
+  <section class="analysis" *ngIf="selectedRoute">
+    <div class="analysis-status" [class.bad]="!feasible(selectedRoute)">
+      <i
+        [class]="
+          feasible(selectedRoute)
+            ? 'ri-checkbox-circle-fill'
+            : 'ri-close-circle-fill'
+        "
+      ></i>
+      <div>
+        <span>Hydraulic feasibility</span
+        ><b>{{
+          feasible(selectedRoute) ? "PASS · FEASIBLE" : "FAIL · NOT FEASIBLE"
+        }}</b>
+      </div>
+      <p>
+        {{
+          feasible(selectedRoute)
+            ? "The selected corridor can meet the input delivery conditions."
+            : "The corridor cannot meet the capacity or minimum destination pressure set in this assessment."
+        }}
+      </p>
+    </div>
+    <div class="analysis-data">
+      <span
+        ><small>Source</small><b>{{ selectedDrs.id }}</b></span
+      ><span
+        ><small>Pipeline length</small
+        ><b>{{ selectedRoute.distance }} km</b></span
+      ><span><small>Proposed diameter</small><b>{{ effectiveDiameter }} mm</b></span
+      ><span
+        ><small>Starting pressure</small
+        ><b>{{ outletPressure }} bar</b></span
+      ><span
+        ><small>Destination pressure</small
+        ><b>{{ destinationPressure(selectedRoute) }} bar</b></span
+      ><span
+        ><small>Post-connection utilization</small
+        ><b>{{ utilization }}%</b></span
+      >
+    </div>
+  </section>
+  <section class="size-analysis" *ngIf="selectedRoute">
+    <div class="section-heading"><div><h2>Pipeline Size Analysis</h2><p>{{ selectedDrs.id }} to selected target · {{ selectedRoute.distance }} km · {{ totalDemand | number }} SCM/hr</p></div><span class="recommend" *ngIf="recommendedDiameter"><i class="ri-ruler-2-line"></i> Minimum suitable size: {{ recommendedDiameter }} mm</span></div>
+    <div class="size-layout"><div class="size-table-wrap"><table><thead><tr><th>Pipe size</th><th>Pressure drop</th><th>End pressure</th><th>Maximum feasible flow</th><th>Status</th></tr></thead><tbody><tr *ngFor="let item of sizeAnalysis" [class.recommended-row]="item.diameter === recommendedDiameter" [class.active-size]="item.diameter === effectiveDiameter"><td><b>{{ item.diameter }} mm</b><small *ngIf="item.diameter === recommendedDiameter">Recommended minimum</small></td><td>{{ item.drop }} bar</td><td>{{ item.pressure }} bar</td><td>{{ item.maxFlow | number }} SCM/hr</td><td><span [class.pass]="item.status === 'PASS'" [class.borderline]="item.status === 'BORDERLINE'" [class.fail]="item.status === 'FAIL'">{{ item.status }}</span></td></tr></tbody></table></div>
+      <div class="drop-chart"><h3>Pressure drop vs pipe diameter</h3><svg viewBox="0 0 400 180" preserveAspectRatio="none"><line x1="35" y1="145" x2="385" y2="145" class="axis"/><line x1="35" [attr.y1]="chartY(maximumPermissibleDrop)" x2="385" [attr.y2]="chartY(maximumPermissibleDrop)" class="threshold"/><polyline [attr.points]="chartPoints()" class="chart-line"/><g *ngFor="let item of sizeAnalysis; let i = index"><circle [attr.cx]="40 + i * 48" [attr.cy]="chartY(item.drop)" r="4" [class.chart-selected]="item.diameter === effectiveDiameter"/><text [attr.x]="40 + i * 48" y="165">{{item.diameter}}</text><text [attr.x]="40 + i * 48" [attr.y]="chartY(item.drop) - 9">{{item.drop}}</text></g></svg><p><i></i> Maximum permissible pressure drop: {{ maximumPermissibleDrop | number:'1.1-2' }} bar</p></div></div>
+    <div class="matrix"><h3>Route + pipe size feasibility matrix</h3><table><thead><tr><th>Route</th><th>Length</th><th *ngFor="let size of [110,125,160,200]">{{size}} mm</th></tr></thead><tbody><tr *ngFor="let route of routes"><td>Route {{route.id}}</td><td>{{route.distance}} km</td><td *ngFor="let size of [110,125,160,200]"><span [class.pass]="hydraulicStatus(route, size) === 'PASS'" [class.borderline]="hydraulicStatus(route, size) === 'BORDERLINE'" [class.fail]="hydraulicStatus(route, size) === 'FAIL'">{{hydraulicStatus(route, size)}}</span></td></tr></tbody></table></div>
+    <p class="method-note"><i class="ri-information-line"></i> Engineering feasibility estimate: pressure drop is dynamically scaled for route length, flow, internal diameter, material/roughness, gas temperature, specific gravity, elevation and fittings. Final design must use the organization’s approved hydraulic methodology and verified network data.</p>
+  </section>
+</div>

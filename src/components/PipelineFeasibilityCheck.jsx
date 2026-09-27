@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   Building2,
   Crosshair,
+  Droplets,
   Eye,
   EyeOff,
   Gauge,
@@ -20,27 +21,28 @@ import SectionHeading from './common/SectionHeading';
 import Card from './common/Card';
 import CollapsibleSection from './common/CollapsibleSection';
 import {
+  ALL_CHAMBERS,
+  CUSTOMERS,
   DEFAULT_TARGET,
-  DOWNSTREAM_CUSTOMERS,
-  ROW_SEGMENTS,
-  SOURCE_NETWORK,
-  buildDamageAssessment,
-  buildRouteOptions,
-  getRowPermissionState,
+  MAP_CENTER,
+  NODES,
+  SEGMENTS,
+  buildConnectionOptions,
+  buildIsolationAssessment,
 } from '../data/pipelineGISNetwork';
 
 const modeOptions = [
   {
     key: 'feasibility',
-    label: 'Feasibility',
+    label: 'New Connection',
     icon: Route,
-    description: 'Compare the nearest DRS, active pipeline, and tee connection routes.',
+    description: 'Click a new customer coordinate to compare a valve-chamber tap-off against a direct pipeline hot-tap.',
   },
   {
-    key: 'damage',
-    label: 'Pipe Damage',
+    key: 'isolation',
+    label: 'Isolation / Damage',
     icon: TriangleAlert,
-    description: 'Click a damaged location and isolate the affected downstream corridor.',
+    description: 'Click a pipeline segment or a customer point to simulate maintenance or damage isolation.',
   },
 ];
 
@@ -52,14 +54,18 @@ function formatPressure(value) {
   return `${value.toFixed(2)} bar`;
 }
 
-function formatFlow(value) {
-  return `${Math.round(value).toLocaleString('en-IN')} SCMH`;
+function formatVolume(value) {
+  return `${value.toLocaleString('en-IN')} SCMD`;
 }
 
 function toneForStatus(status) {
   if (status === 'PASS') return 'bg-emerald-100 text-emerald-700';
   if (status === 'BORDERLINE') return 'bg-amber-100 text-amber-800';
   return 'bg-rose-100 text-rose-700';
+}
+
+function toneForPermission(status) {
+  return status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
 }
 
 function createMarkerIcon({ label, color, className = '', badge }) {
@@ -89,51 +95,34 @@ function PipelineFeasibilityCheck() {
   const [damageLocation, setDamageLocation] = useState(null);
   const [targetPickMode, setTargetPickMode] = useState(false);
   const [damagePickMode, setDamagePickMode] = useState(false);
-  const [selectedRouteKey, setSelectedRouteKey] = useState('drs');
-  const [flowDemand, setFlowDemand] = useState(3200);
-  const [minPressure, setMinPressure] = useState(4.0);
-  const [diameterMm, setDiameterMm] = useState(160);
+  const [selectedOptionKey, setSelectedOptionKey] = useState('optionA');
+  const [flowScmh, setFlowScmh] = useState(300);
+  const [minPressureBar, setMinPressureBar] = useState(1.5);
   const [material, setMaterial] = useState('PE100');
   const [roughness, setRoughness] = useState(0.007);
   const [gasTemperature, setGasTemperature] = useState(25);
-  const [elevationRise, setElevationRise] = useState(0.3);
+  const [elevationRiseM, setElevationRiseM] = useState(0.3);
   const [blinkPhase, setBlinkPhase] = useState(false);
   const [legendOpen, setLegendOpen] = useState(true);
-  const [damageTab, setDamageTab] = useState('isolation');
+  const [isolationTab, setIsolationTab] = useState('valves');
 
-  const routeOptions = useMemo(
-    () =>
-      buildRouteOptions(targetLocation, {
-        flowDemand,
-        minPressure,
-        diameterMm,
-        material,
-        roughness,
-        gasTemperature,
-        elevationRise,
-      }),
-    [targetLocation, flowDemand, minPressure, diameterMm, material, roughness, gasTemperature, elevationRise],
+  const connectionOptions = useMemo(
+    () => buildConnectionOptions(targetLocation, { flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM }),
+    [targetLocation, flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM],
   );
-
-  const selectedRoute = routeOptions.find((route) => route.key === selectedRouteKey) || routeOptions[0];
-  const damageAssessment = useMemo(() => (damageLocation ? buildDamageAssessment(damageLocation) : null), [damageLocation]);
-  const rowSegments = useMemo(() => ROW_SEGMENTS.map((segment) => ({ ...segment, state: getRowPermissionState(segment) })), []);
+  const selectedOption = connectionOptions[selectedOptionKey];
+  const isolationAssessment = useMemo(() => (damageLocation ? buildIsolationAssessment(damageLocation) : null), [damageLocation]);
 
   useEffect(() => {
-    if (!routeOptions.length) return;
-    setSelectedRouteKey((current) => (routeOptions.some((route) => route.key === current) ? current : routeOptions[0].key));
-  }, [routeOptions]);
-
-  useEffect(() => {
-    if (!damageAssessment) return undefined;
+    if (!isolationAssessment) return undefined;
     const timer = setInterval(() => setBlinkPhase((current) => !current), 650);
     return () => clearInterval(timer);
-  }, [damageAssessment]);
+  }, [isolationAssessment]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
 
-    const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([13.08, 80.16], 10);
+    const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([MAP_CENTER.lat, MAP_CENTER.lng], 13);
     mapRef.current = map;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -145,13 +134,13 @@ function PipelineFeasibilityCheck() {
 
     const handleMapClick = (event) => {
       if (mode === 'feasibility' && targetPickMode) {
-        setTargetLocation({ lat: event.latlng.lat, lng: event.latlng.lng, name: 'Selected customer location' });
+        setTargetLocation({ lat: event.latlng.lat, lng: event.latlng.lng, name: 'Selected customer coordinates' });
         setTargetPickMode(false);
         return;
       }
 
-      if (mode === 'damage' && damagePickMode) {
-        setDamageLocation({ lat: event.latlng.lat, lng: event.latlng.lng, name: 'Damaged location' });
+      if (mode === 'isolation' && damagePickMode) {
+        setDamageLocation({ lat: event.latlng.lat, lng: event.latlng.lng, name: 'Incident location' });
         setDamagePickMode(false);
       }
     };
@@ -183,93 +172,95 @@ function PipelineFeasibilityCheck() {
 
     clearLayers();
 
-    rowSegments.forEach((segment) => {
-      const rowLayer = addLayer(
+    SEGMENTS.forEach((segment) => {
+      const isActive = segment.permission.status === 'active';
+      const layer = addLayer(
         'rows',
         L.polyline(segment.geometry, {
-          color: segment.state.tone === 'green' ? '#16a34a' : '#dc2626',
+          color: isActive ? '#16a34a' : '#dc2626',
           weight: 6,
           opacity: 0.85,
-          dashArray: segment.state.tone === 'green' ? '4 8' : '10 8',
+          dashArray: isActive ? undefined : '10 8',
         }).addTo(map),
       );
+      layer.bindPopup(`<b>${segment.id} · ${segment.name}</b><br>${segment.pipeSpecMm}mm PE · ${segment.operatingPressureBar} bar · ${segment.lengthKm} km<br>${segment.permission.note}`);
+    });
 
-      rowLayer.bindPopup(
-        `<b>${segment.name}</b><br>${segment.state.details}<br>${segment.state.remainingDays !== null ? `${segment.state.remainingDays} days remaining` : segment.state.label}`,
+    Object.values(NODES).forEach((node) => {
+      const marker = addLayer(
+        'sources',
+        L.marker([node.lat, node.lng], {
+          icon: createMarkerIcon({ label: node.id === 'CGS' ? 'G' : 'D', color: node.id === 'CGS' ? '#0f172a' : '#0f766e', badge: node.id.replace('_', '-') }),
+        }).addTo(map),
       );
+      marker.bindPopup(`<b>${node.name}</b><br>Pressure: ${formatPressure(node.pressureBar)}`);
     });
 
-    const sourceGroups = [
-      { kind: 'drs', color: '#0f766e', label: 'D' },
-      { kind: 'activePipelines', color: '#2563eb', label: 'P' },
-      { kind: 'teePoints', color: '#d97706', label: 'T' },
-    ];
-
-    sourceGroups.forEach((group) => {
-      SOURCE_NETWORK[group.kind].forEach((source) => {
-        const activeRoute = selectedRoute && selectedRoute.source.id === source.id;
-        const marker = addLayer(
-          'sources',
-          L.marker([source.lat, source.lng], {
-            icon: createMarkerIcon({ label: group.label, color: activeRoute ? '#14532d' : group.color, badge: source.id }),
-          }).addTo(map),
-        );
-
-        marker.bindPopup(`<b>${source.name}</b><br>Available flow: ${formatFlow(source.availableFlow)}<br>Pressure: ${formatPressure(source.pressure)}`);
-        marker.on('click', () => {
-          const matchedKey = routeOptions.find((route) => route.source.id === source.id)?.key;
-          if (matchedKey) setSelectedRouteKey(matchedKey);
-        });
-      });
+    ALL_CHAMBERS.forEach((chamber) => {
+      const isBlinking = mode === 'isolation' && isolationAssessment?.isolationValves.some((valve) => valve.id === chamber.id) && blinkPhase;
+      const marker = addLayer(
+        'valves',
+        L.marker([chamber.lat, chamber.lng], {
+          icon: createMarkerIcon({ label: 'V', color: '#475569', badge: chamber.id, className: isBlinking ? 'gis-valve-blink' : '' }),
+        }).addTo(map),
+      );
+      marker.bindPopup(`<b>${chamber.name}</b>`);
     });
 
-    const targetPoint = addLayer(
-      'points',
-      L.marker([targetLocation.lat, targetLocation.lng], {
-        draggable: true,
-        icon: createMarkerIcon({ label: 'C', color: '#db2777', badge: 'TARGET' }),
-      }).addTo(map),
-    );
-    targetPoint.bindPopup(`<b>${targetLocation.name}</b><br>Customer selection point`);
-    targetPoint.on('dragend', () => {
-      const point = targetPoint.getLatLng();
-      setTargetLocation({ lat: point.lat, lng: point.lng, name: 'Selected customer location' });
+    CUSTOMERS.forEach((customer) => {
+      const impacted = isolationAssessment?.impactedCustomers.some((item) => item.id === customer.id);
+      const tone = mode === 'isolation' && isolationAssessment ? (impacted ? '#dc2626' : '#16a34a') : '#334155';
+      const marker = addLayer(
+        'customers',
+        L.marker([customer.lat, customer.lng], {
+          icon: createMarkerIcon({ label: 'C', color: tone, badge: `${(customer.dailyVolumeScmd / 1000).toFixed(1)}k` }),
+        }).addTo(map),
+      );
+      marker.bindPopup(
+        `<b>${customer.name}</b><br>${customer.location}<br>${formatVolume(customer.dailyVolumeScmd)} · ${customer.peakFlowScmh} SCMH peak<br>Valve chamber: ${customer.valveChamberId}`,
+      );
+      if (mode === 'isolation') {
+        marker.on('click', () => setDamageLocation({ lat: customer.lat, lng: customer.lng, name: `${customer.name} service line` }));
+      }
     });
 
-    if (mode === 'damage' && damageLocation) {
-      const damagePoint = addLayer(
+    if (mode === 'feasibility') {
+      const targetMarker = addLayer(
         'points',
-        L.marker([damageLocation.lat, damageLocation.lng], {
+        L.marker([targetLocation.lat, targetLocation.lng], {
           draggable: true,
-          icon: createMarkerIcon({ label: '!', color: '#b91c1c', badge: 'DAMAGE' }),
+          icon: createMarkerIcon({ label: 'N', color: '#db2777', badge: 'NEW' }),
         }).addTo(map),
       );
-      damagePoint.bindPopup('<b>Damaged segment</b><br>Click map to reposition the incident.');
-      damagePoint.on('dragend', () => {
-        const point = damagePoint.getLatLng();
-        setDamageLocation({ lat: point.lat, lng: point.lng, name: 'Damaged location' });
+      targetMarker.bindPopup(`<b>${targetLocation.name}</b><br>Proposed customer coordinates`);
+      targetMarker.on('dragend', () => {
+        const point = targetMarker.getLatLng();
+        setTargetLocation({ lat: point.lat, lng: point.lng, name: 'Selected customer coordinates' });
+      });
+
+      [connectionOptions.optionA, connectionOptions.optionB].forEach((option) => {
+        const isSelected = option.key === selectedOptionKey;
+        option.overlay.forEach((piece) => {
+          const layer = addLayer(
+            'routes',
+            L.polyline(
+              piece.geometry.map((point) => [point.lat, point.lng]),
+              {
+                color: piece.tone === 'green' ? '#16a34a' : '#dc2626',
+                weight: isSelected ? 7 : 4,
+                opacity: isSelected ? 1 : 0.55,
+                dashArray: option.key === 'optionB' ? '3 8' : undefined,
+              },
+            ).addTo(map),
+          );
+          layer.bindPopup(`<b>${option.label}</b><br>${piece.label}`);
+          layer.on('click', () => setSelectedOptionKey(option.key));
+        });
       });
     }
 
-    routeOptions.forEach((route) => {
-      const layer = addLayer(
-        'routes',
-        L.polyline(route.geometry, {
-          color: route.key === selectedRoute?.key ? route.color : `${route.color}cc`,
-          weight: route.key === selectedRoute?.key ? 8 : 5,
-          opacity: route.key === selectedRoute?.key ? 1 : 0.62,
-          dashArray: route.key === selectedRoute?.key ? undefined : '10 8',
-        }).addTo(map),
-      );
-
-      layer.bindPopup(
-        `<b>${route.label}</b><br>${formatDistance(route.lengthKm)} total length<br>${formatPressure(route.pressureDrop)} loss<br>${formatPressure(route.endPressure)} at customer`,
-      );
-      layer.on('click', () => setSelectedRouteKey(route.key));
-    });
-
-    if (mode === 'damage' && damageAssessment) {
-      const damagePointLayer = addLayer(
+    if (mode === 'isolation' && damageLocation) {
+      const damagePoint = addLayer(
         'points',
         L.circleMarker([damageLocation.lat, damageLocation.lng], {
           radius: 10,
@@ -279,75 +270,47 @@ function PipelineFeasibilityCheck() {
           weight: 3,
         }).addTo(map),
       );
-      damagePointLayer.bindPopup('<b>Incident focus</b><br>Damage impact analysis active.');
-
-      DOWNSTREAM_CUSTOMERS.forEach((customer) => {
-        const affected = customer.order >= damageAssessment.damageOrder;
-        const marker = addLayer(
-          'customers',
-          L.marker([customer.lat, customer.lng], {
-            icon: createMarkerIcon({
-              label: 'C',
-              color: affected ? '#dc2626' : '#16a34a',
-              badge: `${customer.order}`,
-              className: affected ? '' : 'gis-marker--muted',
-            }),
-          }).addTo(map),
-        );
-
-        marker.bindPopup(
-          `<b>${customer.name}</b><br>${customer.industry}<br>${affected ? 'Affected downstream customer' : 'Unaffected downstream customer'}<br>Chainage order: ${customer.order}`,
-        );
-      });
-
-      damageAssessment.isolationValves.forEach((valve) => {
-        const valveMarker = addLayer(
-          'valves',
-          L.marker([valve.lat, valve.lng], {
-            icon: createMarkerIcon({ label: 'V', color: '#0f172a', badge: valve.id, className: blinkPhase ? 'gis-valve-blink' : '' }),
-          }).addTo(map),
-        );
-        valveMarker.bindPopup(`<b>${valve.name}</b><br>Close immediately to isolate the damaged segment.`);
-      });
+      damagePoint.bindPopup(`<b>Incident focus</b><br>${damageLocation.name}`);
     }
 
     const boundsPoints = [];
-    if (selectedRoute) boundsPoints.push(...selectedRoute.geometry);
-    boundsPoints.push([targetLocation.lat, targetLocation.lng]);
-    if (damageLocation) boundsPoints.push([damageLocation.lat, damageLocation.lng]);
+    SEGMENTS.forEach((segment) => boundsPoints.push(...segment.geometry));
+    if (mode === 'feasibility') boundsPoints.push([targetLocation.lat, targetLocation.lng]);
+    if (mode === 'isolation' && damageLocation) boundsPoints.push([damageLocation.lat, damageLocation.lng]);
 
     if (boundsPoints.length > 1) {
       const bounds = L.latLngBounds(boundsPoints);
       boundsRef.current = bounds;
-      map.fitBounds(bounds, { padding: [36, 36] });
+      if (!targetPickMode && !damagePickMode) map.fitBounds(bounds, { padding: [36, 36] });
     }
 
     return () => {
       clearLayers();
     };
-  }, [mode, rowSegments, routeOptions, selectedRoute, targetLocation, damageLocation, damageAssessment, blinkPhase]);
+  }, [mode, connectionOptions, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, blinkPhase]);
 
-  const selectedSource = selectedRoute?.source;
   const handleRecenter = () => {
     if (mapRef.current && boundsRef.current) {
       mapRef.current.fitBounds(boundsRef.current, { padding: [36, 36] });
     }
   };
-  const rowSummary = rowSegments.reduce(
+
+  const permissionSummary = SEGMENTS.reduce(
     (summary, segment) => {
-      if (segment.state.tone === 'green') summary.active += 1;
-      else summary.blocked += 1;
+      if (segment.permission.status === 'active') summary.active += 1;
+      else summary.pending += 1;
       return summary;
     },
-    { active: 0, blocked: 0 },
+    { active: 0, pending: 0 },
   );
 
-  const damageStats = damageAssessment
+  const totalLostScmd = isolationAssessment ? isolationAssessment.impactedCustomers.reduce((sum, customer) => sum + customer.lostVolumeScmd, 0) : 0;
+  const isolationStats = isolationAssessment
     ? [
-        { label: 'Downstream affected', value: damageAssessment.summary.affectedCount, detail: 'Customers that require outage planning.', icon: AlertTriangle },
-        { label: 'Unaffected downstream', value: damageAssessment.summary.unaffectedCount, detail: 'Customers outside the isolated section.', icon: Building2 },
-        { label: 'Isolation valves', value: damageAssessment.isolationValves.length, detail: 'Blinking on the map for immediate closure.', icon: Wrench },
-        { label: 'Response state', value: 'Active', detail: 'Impact analysis refreshed instantly on map click.', icon: ShieldCheck },
+        { label: 'Valves to close', value: isolationAssessment.isolationValves.length, detail: 'Blinking on the map for immediate closure.', icon: Wrench },
+        { label: 'Customers impacted', value: isolationAssessment.impactedCustomers.length, detail: 'Require outage planning / advance notice.', icon: AlertTriangle },
+        { label: 'Lost daily volume', value: formatVolume(totalLostScmd), detail: 'Combined SCMD across impacted customers.', icon: Droplets },
+        { label: 'Customers unaffected', value: isolationAssessment.unaffectedCustomers.length, detail: 'No pressure degradation expected.', icon: ShieldCheck },
       ]
     : [];
 
@@ -355,8 +318,8 @@ function PipelineFeasibilityCheck() {
     <div className="space-y-6">
       <SectionHeading
         eyebrow="Marketing"
-        title="GIS Pipeline Route Feasibility & Emergency Management"
-        description="Operator workflow for industrial customer onboarding, route comparison, right-of-way visibility, and immediate damage isolation planning."
+        title="Gummidipoondi Pipeline Feasibility & Isolation Analysis"
+        description="Point-and-click connection feasibility and emergency isolation planning for the Gummidipoondi Industrial Area distribution network."
       />
 
       <div className="grid gap-6 xl:grid-cols-[390px_1fr]">
@@ -394,9 +357,9 @@ function PipelineFeasibilityCheck() {
               <Card className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">Target customer location</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">New customer coordinates</p>
                     <h3 className="mt-1 text-lg font-semibold text-slate-900">{targetLocation.name}</h3>
-                    <p className="mt-1 text-sm text-slate-500">Click the map to move the customer site or drag the marker directly.</p>
+                    <p className="mt-1 text-sm text-slate-500">Click anywhere on the map to place the new connection, or drag the marker directly.</p>
                   </div>
                   <MapPin className="h-5 w-5 text-emerald-600" aria-hidden="true" />
                 </div>
@@ -413,35 +376,26 @@ function PipelineFeasibilityCheck() {
 
               <CollapsibleSection
                 title="Hydraulic parameters"
-                subtitle={`${flowDemand.toLocaleString('en-IN')} SCMH · ${diameterMm}mm ${material} · min ${minPressure.toFixed(1)} bar`}
+                subtitle={`${flowScmh.toLocaleString('en-IN')} SCMH peak · min ${minPressureBar.toFixed(1)} bar`}
                 icon={Gauge}
               >
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Peak gas demand
+                    Peak flow rate
                     <input
                       type="number"
-                      value={flowDemand}
-                      onChange={(event) => setFlowDemand(Number(event.target.value))}
+                      value={flowScmh}
+                      onChange={(event) => setFlowScmh(Number(event.target.value))}
                       className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
                     />
                   </label>
                   <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Minimum pressure
+                    Minimum terminal pressure
                     <input
                       type="number"
                       step="0.1"
-                      value={minPressure}
-                      onChange={(event) => setMinPressure(Number(event.target.value))}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
-                    />
-                  </label>
-                  <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Pipe diameter
-                    <input
-                      type="number"
-                      value={diameterMm}
-                      onChange={(event) => setDiameterMm(Number(event.target.value))}
+                      value={minPressureBar}
+                      onChange={(event) => setMinPressureBar(Number(event.target.value))}
                       className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
                     />
                   </label>
@@ -481,8 +435,8 @@ function PipelineFeasibilityCheck() {
                     <input
                       type="number"
                       step="0.1"
-                      value={elevationRise}
-                      onChange={(event) => setElevationRise(Number(event.target.value))}
+                      value={elevationRiseM}
+                      onChange={(event) => setElevationRiseM(Number(event.target.value))}
                       className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
                     />
                   </label>
@@ -490,86 +444,78 @@ function PipelineFeasibilityCheck() {
               </CollapsibleSection>
 
               <CollapsibleSection
-                title="Right-of-way permissions"
-                subtitle={`${rowSummary.active} active · ${rowSummary.blocked} pending/blocked`}
+                title="Segment permissions (SEC-01 to SEC-05)"
+                subtitle={`${permissionSummary.active} available · ${permissionSummary.pending} pending`}
                 icon={Layers3}
                 badge={
-                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${rowSummary.blocked ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                    {rowSummary.blocked ? `${rowSummary.blocked} blocked` : 'All clear'}
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${permissionSummary.pending ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {permissionSummary.pending ? `${permissionSummary.pending} pending` : 'All clear'}
                   </span>
                 }
               >
                 <div className="space-y-2">
-                  {rowSegments.map((segment) => (
-                    <div key={segment.id} className={`rounded-2xl border p-3.5 ${segment.state.tone === 'green' ? 'border-emerald-200 bg-emerald-50/60' : 'border-rose-200 bg-rose-50/60'}`}>
+                  {SEGMENTS.map((segment) => (
+                    <div key={segment.id} className={`rounded-2xl border p-3.5 ${segment.permission.status === 'active' ? 'border-emerald-200 bg-emerald-50/60' : 'border-rose-200 bg-rose-50/60'}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">{segment.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">Authority: {segment.authority}</p>
+                          <p className="text-sm font-semibold text-slate-900">{segment.id} · {segment.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{segment.pipeSpecMm}mm PE · {segment.operatingPressureBar} bar · {segment.lengthKm} km</p>
                         </div>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${segment.state.tone === 'green' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                          {segment.state.label}
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneForPermission(segment.permission.status)}`}>
+                          {segment.permission.status === 'active' ? 'Available' : 'Pending'}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-slate-600">{segment.state.details}</p>
+                      <p className="mt-2 text-sm text-slate-600">{segment.permission.note}</p>
                     </div>
                   ))}
-                </div>
-
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl bg-slate-50 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Active ROW segments</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{rowSummary.active}</p>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 p-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Pending / unavailable</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{rowSummary.blocked}</p>
-                  </div>
                 </div>
               </CollapsibleSection>
 
               <div className="space-y-3">
-                <p className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Route comparison</p>
-                {routeOptions.map((route) => {
-                  const active = route.key === selectedRoute?.key;
+                <p className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Connection options</p>
+                {[connectionOptions.optionA, connectionOptions.optionB].map((option) => {
+                  const active = option.key === selectedOptionKey;
                   return (
                     <button
-                      key={route.key}
+                      key={option.key}
                       type="button"
-                      onClick={() => setSelectedRouteKey(route.key)}
+                      onClick={() => setSelectedOptionKey(option.key)}
                       className={`w-full rounded-2xl border p-4 text-left transition ${active ? 'border-emerald-500 bg-emerald-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">{route.label}</p>
-                          <p className="mt-1 text-xs text-slate-500">Nearest source: {route.source.name}</p>
+                          <p className="text-sm font-semibold text-slate-900">{option.label}</p>
+                          <p className="mt-1 text-xs text-slate-500">Tap point: {option.tapPointName}</p>
                         </div>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneForStatus(route.status)}`}>{route.status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneForStatus(option.status)}`}>{option.status}</span>
                       </div>
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Source distance</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatDistance(route.sourceDistanceKm)}</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Route length</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatDistance(option.distanceKm)}</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Route length</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatDistance(route.lengthKm)}</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Recommended pipe size</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{option.recommendedDiameterMm} mm PE</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 px-3 py-2">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Pressure loss</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatPressure(route.pressureDrop)}</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatPressure(option.pressureDropBar)}</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">End pressure</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatPressure(route.endPressure)}</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Terminal pressure</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{formatPressure(option.terminalPressureBar)}</p>
                         </div>
                       </div>
 
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1">{route.rowClearance}</span>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1">Max flow {formatFlow(route.availableFlow)}</span>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-1">Pipe routing: source → target</span>
+                      <div className="mt-3 space-y-1.5">
+                        {option.overlay.map((piece) => (
+                          <div key={piece.key} className={`flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${piece.tone === 'green' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${piece.tone === 'green' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                            {piece.label}
+                          </div>
+                        ))}
                       </div>
                     </button>
                   );
@@ -581,9 +527,9 @@ function PipelineFeasibilityCheck() {
               <Card className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">Pipe damage response</p>
-                    <h3 className="mt-1 text-lg font-semibold text-slate-900">Click the map to mark the damage location</h3>
-                    <p className="mt-1 text-sm text-slate-500">The impact analysis updates instantly and the isolation valves blink on the map.</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">Isolation / damage response</p>
+                    <h3 className="mt-1 text-lg font-semibold text-slate-900">Click a segment or customer to simulate isolation</h3>
+                    <p className="mt-1 text-sm text-slate-500">Clicking a customer marker isolates only that service line; clicking the mainline isolates the section and everything downstream of it.</p>
                   </div>
                   <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
                 </div>
@@ -594,21 +540,21 @@ function PipelineFeasibilityCheck() {
                   className={`mt-4 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition ${damagePickMode ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 bg-white text-rose-700 hover:bg-rose-50'}`}
                 >
                   <TriangleAlert className="h-4 w-4" aria-hidden="true" />
-                  {damagePickMode ? 'Click map to place damage' : 'Mark damaged pipe on map'}
+                  {damagePickMode ? 'Click map to place incident' : 'Mark damage / maintenance on map'}
                 </button>
 
-                {damageLocation && (
+                {isolationAssessment && (
                   <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-                    Damage point captured at {damageLocation.lat.toFixed(4)}, {damageLocation.lng.toFixed(4)}. Isolation valves are now blinking.
+                    Incident: {isolationAssessment.incidentLabel}. Isolation valves are now blinking on the map.
                   </div>
                 )}
               </Card>
 
-              {damageAssessment && (
+              {isolationAssessment && (
                 <Card className="p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Impact snapshot</p>
                   <div className="mt-3 grid grid-cols-2 gap-3">
-                    {damageStats.map((item) => {
+                    {isolationStats.map((item) => {
                       const Icon = item.icon;
                       return (
                         <div key={item.label} className="rounded-2xl border border-slate-200 p-3">
@@ -616,7 +562,8 @@ function PipelineFeasibilityCheck() {
                             <p className="text-[11px] uppercase leading-4 tracking-[0.14em] text-slate-400">{item.label}</p>
                             <Icon className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
                           </div>
-                          <p className="mt-1.5 text-xl font-semibold text-slate-900">{item.value}</p>
+                          <p className="mt-1.5 text-lg font-semibold text-slate-900">{item.value}</p>
+                          <p className="mt-1 text-[11px] leading-4 text-slate-500">{item.detail}</p>
                         </div>
                       );
                     })}
@@ -624,19 +571,19 @@ function PipelineFeasibilityCheck() {
                 </Card>
               )}
 
-              {damageAssessment && (
+              {isolationAssessment && (
                 <Card className="p-4">
                   <div className="grid grid-cols-3 gap-1.5 rounded-xl bg-slate-100 p-1">
                     {[
-                      { key: 'isolation', label: 'Isolation', count: damageAssessment.isolationValves.length },
-                      { key: 'affected', label: 'Affected', count: damageAssessment.affectedCustomers.length },
-                      { key: 'unaffected', label: 'Unaffected', count: damageAssessment.unaffectedCustomers.length },
+                      { key: 'valves', label: 'Valves', count: isolationAssessment.isolationValves.length },
+                      { key: 'impacted', label: 'Impacted', count: isolationAssessment.impactedCustomers.length },
+                      { key: 'unaffected', label: 'Unaffected', count: isolationAssessment.unaffectedCustomers.length },
                     ].map((tab) => (
                       <button
                         key={tab.key}
                         type="button"
-                        onClick={() => setDamageTab(tab.key)}
-                        className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${damageTab === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        onClick={() => setIsolationTab(tab.key)}
+                        className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${isolationTab === tab.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                       >
                         {tab.label} · {tab.count}
                       </button>
@@ -644,36 +591,53 @@ function PipelineFeasibilityCheck() {
                   </div>
 
                   <div className="mt-3 space-y-2">
-                    {damageTab === 'isolation' &&
-                      damageAssessment.isolationValves.map((valve) => (
+                    {isolationTab === 'valves' &&
+                      isolationAssessment.isolationValves.map((valve) => (
                         <div key={valve.id} className="rounded-2xl border border-slate-200 p-3">
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold text-slate-900">{valve.name}</p>
-                              <p className="mt-1 text-xs text-slate-500">Chainage order {valve.order}</p>
+                              <p className="mt-1 text-xs text-slate-500">{valve.note}</p>
                             </div>
-                            <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">Blinking</span>
+                            <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">Close now</span>
                           </div>
                         </div>
                       ))}
 
-                    {damageTab === 'affected' &&
-                      damageAssessment.affectedCustomers.map((customer) => (
-                        <div key={customer.contractNumber} className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
-                          <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{customer.industry} · {customer.location} · order {customer.order}</p>
-                        </div>
+                    {isolationTab === 'impacted' &&
+                      (isolationAssessment.impactedCustomers.length === 0 ? (
+                        <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">No customers lose supply for this incident.</p>
+                      ) : (
+                        isolationAssessment.impactedCustomers.map((customer) => (
+                          <div key={customer.id} className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                            <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
+                            <p className="mt-1 text-xs text-slate-500">{customer.location} · loses {formatVolume(customer.lostVolumeScmd)}</p>
+                          </div>
+                        ))
                       ))}
 
-                    {damageTab === 'unaffected' &&
-                      damageAssessment.unaffectedCustomers.map((customer) => (
-                        <div key={customer.contractNumber} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
+                    {isolationTab === 'unaffected' &&
+                      isolationAssessment.unaffectedCustomers.map((customer) => (
+                        <div key={customer.id} className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
                           <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{customer.industry} · {customer.location} · order {customer.order}</p>
+                          <p className="mt-1 text-xs text-slate-500">{customer.location} · {formatVolume(customer.dailyVolumeScmd)} unaffected</p>
                         </div>
                       ))}
                   </div>
                 </Card>
+              )}
+
+              {isolationAssessment && isolationAssessment.unaffectedZones.length > 0 && (
+                <CollapsibleSection title="Uninterrupted network check" subtitle={`${isolationAssessment.unaffectedZones.length} corridors stay pressurized`} icon={ShieldCheck}>
+                  <div className="space-y-2">
+                    {isolationAssessment.unaffectedZones.map((zone) => (
+                      <div key={zone.id} className="rounded-2xl border border-slate-200 p-3">
+                        <p className="text-sm font-semibold text-slate-900">{zone.id} · {zone.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">{zone.note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleSection>
               )}
             </>
           )}
@@ -682,8 +646,8 @@ function PipelineFeasibilityCheck() {
         <div className="space-y-4">
           <Card className="relative overflow-hidden p-0">
             <div className="absolute left-4 top-4 z-[500] rounded-xl bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Operator login</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">Marketing module GIS control room</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Marketing module</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">Gummidipoondi GIS control room</p>
             </div>
 
             <div className="absolute right-4 top-4 z-[500] flex gap-2">
@@ -708,11 +672,12 @@ function PipelineFeasibilityCheck() {
             {legendOpen && (
               <div className="absolute bottom-4 left-4 z-[500] rounded-xl bg-white/95 px-4 py-3 text-xs text-slate-600 shadow-lg backdrop-blur">
                 <div className="flex flex-wrap gap-3">
-                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Active ROW</span>
-                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Pending / unavailable ROW</span>
-                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />Nearest DRS</span>
-                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#2563eb]" />Active pipeline</span>
-                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#d97706]" />Tap-off / tee</span>
+                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Available segment</span>
+                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-rose-500" />Pending permission</span>
+                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#0f172a]" />CGS</span>
+                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#0f766e]" />DRS</span>
+                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#475569]" />Valve chamber</span>
+                  <span className="inline-flex items-center gap-1"><i className="h-2.5 w-2.5 rounded-full bg-[#334155]" />Customer</span>
                 </div>
               </div>
             )}
@@ -724,9 +689,9 @@ function PipelineFeasibilityCheck() {
             <Card className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Selected source</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{selectedSource?.name || 'No route selected'}</p>
-                  <p className="mt-1 text-sm text-slate-500">{selectedRoute ? selectedRoute.rationale : 'Choose a route option to inspect it on the map.'}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Selected option</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{selectedOption?.label || 'No option selected'}</p>
+                  <p className="mt-1 text-sm text-slate-500">Tap point: {selectedOption?.tapPointName}</p>
                 </div>
                 <Building2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
               </div>
@@ -735,29 +700,25 @@ function PipelineFeasibilityCheck() {
             <Card className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Source network</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{SOURCE_NETWORK.drs.length + SOURCE_NETWORK.activePipelines.length + SOURCE_NETWORK.teePoints.length} options mapped</p>
-                  <p className="mt-1 text-sm text-slate-500">DRS, active pipeline, and tee points are available as selectable origins.</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Network at a glance</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">1 CGS · 3 DRS · 5 segments</p>
+                  <p className="mt-1 text-sm text-slate-500">{ALL_CHAMBERS.length} valve chambers across the network, {CUSTOMERS.length} connected customers.</p>
                 </div>
                 <Wrench className="h-5 w-5 text-emerald-600" aria-hidden="true" />
               </div>
             </Card>
           </div>
 
-          <CollapsibleSection
-            title="Downstream customer corridor"
-            subtitle={`${DOWNSTREAM_CUSTOMERS.length} industrial customers along the chainage`}
-            icon={Users}
-          >
+          <CollapsibleSection title="Existing customer base" subtitle={`${CUSTOMERS.length} industrial customers connected`} icon={Users}>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {DOWNSTREAM_CUSTOMERS.map((customer) => (
-                <div key={customer.contractNumber} className="rounded-2xl border border-slate-200 p-3">
+              {CUSTOMERS.map((customer) => (
+                <div key={customer.id} className="rounded-2xl border border-slate-200 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{customer.industry} · {customer.location}</p>
+                      <p className="mt-1 text-xs text-slate-500">{customer.location} · {NODES[customer.sourceDrsId]?.name} · {customer.valveChamberId}</p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">Order {customer.order}</span>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{formatVolume(customer.dailyVolumeScmd)}</span>
                   </div>
                 </div>
               ))}

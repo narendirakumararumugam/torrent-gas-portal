@@ -6,6 +6,7 @@ import ConnectionTracker from './components/ConnectionTracker';
 import ContractSummary from './components/ContractSummary';
 import BillingCenter from './components/BillingCenter';
 import ReportsHub from './components/ReportsHub';
+import PersonaDashboard from './components/PersonaDashboard';
 import ComplaintDesk from './components/ComplaintDesk';
 import TariffBoard from './components/TariffBoard';
 import SupportCenter from './components/SupportCenter';
@@ -151,6 +152,8 @@ function App() {
           return <BillingCenter onShowToast={showToast} />;
         case '/customer/reports':
           return <ReportsHub onDownload={downloadReport} onShowToast={showToast} audience="customer" />;
+        case '/customer/persona-dashboard':
+          return <PersonaDashboard />;
         case '/customer/complaint':
           return <ComplaintDesk onSubmit={submitComplaint} />;
         case '/customer/tariff':

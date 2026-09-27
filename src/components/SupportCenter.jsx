@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AlertTriangle, ChevronRight, Mail, Phone, Search } from 'lucide-react';
 import Card from './common/Card';
 import SectionHeading from './common/SectionHeading';
+import SupportChatAssistant from './support/SupportChatAssistant';
 import { faqEntries } from '../data/faqs';
 import { nodalContacts } from '../data/contacts';
 
@@ -14,6 +15,8 @@ function SupportCenter() {
   return (
     <div className="space-y-6">
       <SectionHeading eyebrow="Help" title="Support Center" description="Emergency hotline, nodal contacts, and answers to frequently asked questions." />
+
+      <SupportChatAssistant />
 
       <div className="flex flex-col items-start gap-4 rounded-xl bg-rose-600 p-6 text-white sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">

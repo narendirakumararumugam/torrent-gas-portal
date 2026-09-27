@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Sparkles,
   Route,
+  Users,
 } from 'lucide-react';
 
 export const customerCategories = ['Industrial Customer', 'Commercial Customer'];
@@ -19,6 +20,7 @@ export const customerNav = [
   { id: 'contracts', label: 'View Contracts', icon: FileText, path: '/customer/contracts' },
   { id: 'billing', label: 'Bills & Payments', icon: Receipt, path: '/customer/billing' },
   { id: 'reports', label: 'Reports', icon: CloudDownload, path: '/customer/reports' },
+  { id: 'persona-dashboard', label: 'Persona Dashboard', icon: Users, path: '/customer/persona-dashboard' },
   { id: 'complaint', label: 'Register Complaint', icon: MessageSquareMore, path: '/customer/complaint' },
   { id: 'tariff', label: 'Tariff Information', icon: Sparkles, path: '/customer/tariff' },
   { id: 'support', label: 'Support & Help', icon: HelpCircle, path: '/customer/support' },

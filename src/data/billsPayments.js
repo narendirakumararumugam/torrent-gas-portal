@@ -24,11 +24,10 @@ export const supplierProfile = {
 
 /* Last 5 completed/current fortnightly billing cycles, oldest first */
 export const billingCycles = [
-  { id: 'FN-2607-A', label: '01–15 Jul 2026', invoicedDate: '2026-07-16', dueDate: '2026-07-23', invoiced: 452000, paid: 452000, paidDate: '2026-07-22' },
-  { id: 'FN-2607-B', label: '16–31 Jul 2026', invoicedDate: '2026-08-01', dueDate: '2026-08-08', invoiced: 468500, paid: 468500, paidDate: '2026-08-07' },
-  { id: 'FN-2608-A', label: '01–15 Aug 2026', invoicedDate: '2026-08-16', dueDate: '2026-08-23', invoiced: 479800, paid: 430000, paidDate: '2026-08-23' },
-  { id: 'FN-2608-B', label: '16–31 Aug 2026', invoicedDate: '2026-09-01', dueDate: '2026-09-08', invoiced: 493200, paid: 493200, paidDate: '2026-09-06' },
-  { id: 'FN-2609-A', label: '01–15 Sep 2026', invoicedDate: '2026-09-16', dueDate: '2026-09-23', invoiced: 873194, paid: 0, paidDate: null },
+  { id: 'FN-2607-B', label: '16–31 Jul 2026', monthLabel: 'July 2026', invoicedDate: '2026-08-01', dueDate: '2026-08-09', invoiced: 452000, paid: 452000, paidDate: '2026-08-09' },
+  { id: 'FN-2608-A', label: '01–15 Aug 2026', monthLabel: 'August 2026', invoicedDate: '2026-08-16', dueDate: '2026-08-24', invoiced: 468500, paid: 468500, paidDate: '2026-08-24' },
+  { id: 'FN-2608-B', label: '16–31 Aug 2026', monthLabel: 'August 2026', invoicedDate: '2026-09-01', dueDate: '2026-09-09', invoiced: 479800, paid: 430000, paidDate: '2026-09-08' },
+  { id: 'FN-2609-A', label: '01–15 Sep 2026', monthLabel: 'September 2026 ', invoicedDate: '2026-09-16', dueDate: '2026-09-24', invoiced: 873194, paid: 821194, paidDate: '2026-09-24' },
 ];
 
 /* Ongoing fortnight - usage metered live, not yet invoiced */

@@ -100,7 +100,7 @@ function SignedLettersPanel({ onClose, onShowToast }) {
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Document Management</p>
-            <h2 id="signed-letters-title" className="mt-1 text-xl font-semibold text-slate-900">Signed Letters</h2>
+            <h2 id="signed-letters-title" className="mt-1 text-xl font-semibold text-slate-900">Side Letters</h2>
           </div>
           <button
             ref={closeButtonRef}

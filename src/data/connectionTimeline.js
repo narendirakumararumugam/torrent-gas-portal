@@ -4,77 +4,65 @@ export const trackerProgress = 65;
 export const trackerEta = '15 Oct 2026';
 
 export const projectManager = {
-  name: 'Suresh Rathi',
+  name: 'Mr. Pawan',
   role: 'Project Manager',
-  initials: 'SR',
+  initials: 'PW',
   phone: '+91 98200 12345',
 };
 
 export const timelineEvents = [
   {
     id: 1,
-    title: 'Registration & KYC Verification',
+    title: 'Agreement signed',
     status: 'completed',
     date: '02 Aug 2026',
-    officer: 'A. Verma',
     iconType: 'registration',
-    note: 'Application received and KYC documents verified successfully.',
+    note: 'Customer KYC verified and virtual account created and shared successfully',
     noteLink: 'View Verified Docs',
   },
   {
     id: 2,
-    title: 'Agreement Signed',
+    title: 'Pipeline laid till your premises',
     status: 'completed',
     date: '06 Aug 2026',
-    officer: 'P. Nair',
     iconType: 'agreement',
-    note: 'Commercial supply agreement executed and digitally signed.',
+    note: 'Underground MDPE network extended in your boundary',
   },
   {
     id: 3,
-    title: 'Feasibility Survey',
+    title: 'Meter installation',
     status: 'completed',
     date: '12 Aug 2026',
-    officer: 'R. Saha',
     iconType: 'feasibility',
-    note: 'Site survey confirms the pipeline route is technically feasible.',
+    note: 'Meter installed successfully',
   },
   {
     id: 4,
-    title: 'Pipeline Laid Till Premises',
+    title: 'PNG made available till your meter',
     status: 'completed',
     date: '28 Sep 2026',
-    officer: 'M. Khan',
     iconType: 'pipeline',
-    note: 'Pipeline laid up to the premises boundary and pressure tested.',
-    action: 'View Survey Map',
+    note: 'Meter hookup completed and PNG made available till the outlet of meter',
   },
   {
     id: 5,
-    title: 'Meter Installation Scheduled',
+    title: 'TPI received',
     status: 'upcoming',
-    date: '08 Oct 2026',
-    officer: 'D. Chatterjee',
     iconType: 'meter',
-    note: 'Smart meter installation appointment confirmed with the site team.',
-    action: 'Reschedule Appointment',
+    note: 'Awaiting for TPI certificate'
   },
   {
     id: 6,
     title: 'Final Quality Check',
-    status: 'active',
-    date: 'In Progress',
-    officer: 'Operations Desk',
+    status: 'upcoming',
     iconType: 'quality',
-    note: 'Safety and pressure quality checks underway before supply activation.',
+    note: 'Awaiting for TPI certificate for scheduling final QC visit'
   },
   {
     id: 7,
     title: 'Connection Completion & Supply Activation',
     status: 'upcoming',
-    date: 'Target: 15 Oct 2026',
-    officer: 'Customer Success',
     iconType: 'activation',
-    note: 'Final PNG/CNG supply activation and handover to customer success.',
+    note: 'PNG commissioned successfully'
   },
 ];
