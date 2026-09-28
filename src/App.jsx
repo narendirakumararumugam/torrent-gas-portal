@@ -16,10 +16,11 @@ import ExistingCustomers from './components/ExistingCustomers';
 import PipelineFeasibilityCheck from './components/PipelineFeasibilityCheck';
 import MarketingBillingExposure from './components/marketing/MarketingBillingExposure';
 import MarketingTariffRevision from './components/marketing/MarketingTariffRevision';
+import RegisteredComplaints from './components/marketing/RegisteredComplaints';
 import { customerNav, corporateNav, marketingNav } from './data/navigation';
 import { generateDownload } from './utils/download';
 
-const AUTH_STORAGE_KEY = 'cng-portal-auth';
+const AUTH_STORAGE_KEY = 'png-portal-auth';
 const DEFAULT_CUSTOMER_PATH = '/customer/connection';
 const LOGIN_PATH = '/login';
 
@@ -176,7 +177,7 @@ function App() {
       case '/corporate/tariff-price-revision':
         return <MarketingTariffRevision onShowToast={showToast} />;
       case '/corporate/registered-complaints':
-        return <ComplaintDesk onSubmit={submitComplaint} />;
+        return <RegisteredComplaints onShowToast={showToast} />;
       case '/corporate/requests':
         return <ComplaintDesk onSubmit={submitComplaint} />;
       case '/corporate/approvals':

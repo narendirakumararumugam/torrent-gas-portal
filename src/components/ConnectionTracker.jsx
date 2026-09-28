@@ -153,13 +153,6 @@ function ConnectionTracker() {
           ))}
         </div>
       </Card>
-
-      <CustomerCollaborationPanel
-        customerKey={contractProfile.contractNumber}
-        customerName={contractProfile.company.name}
-        viewerLabel="Customer"
-        authorName={contractProfile.company.name}
-      />
     </div>
   );
 }

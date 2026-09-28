@@ -29,6 +29,9 @@ import {
   SEGMENTS,
   buildConnectionOptions,
   buildIsolationAssessment,
+  ensureRoadSnappedNetwork,
+  hydraulicStatus,
+  pressureDropBar,
 } from '../data/pipelineGISNetwork';
 
 const modeOptions = [
@@ -56,6 +59,35 @@ function formatPressure(value) {
 
 function formatVolume(value) {
   return `${value.toLocaleString('en-IN')} SCMD`;
+}
+
+function round2(value) {
+  return Math.round(value * 100) / 100;
+}
+
+async function fetchRoadRoute(from, to) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?alternatives=false&overview=full&geometries=geojson`;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Routing request failed');
+
+    const result = await response.json();
+    const route = result.routes?.[0];
+    if (!route?.geometry?.coordinates?.length) throw new Error('No road route returned');
+
+    return {
+      geometry: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
+      distanceKm: route.distance / 1000,
+      source: 'osrm',
+    };
+  } catch {
+    return {
+      geometry: [from, to],
+      distanceKm: Math.sqrt((from.lat - to.lat) ** 2 + (from.lng - to.lng) ** 2) * 111,
+      source: 'fallback',
+    };
+  }
 }
 
 function toneForStatus(status) {
@@ -88,6 +120,7 @@ function PipelineFeasibilityCheck() {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const layerRefs = useRef({ routes: [], rows: [], sources: [], valves: [], customers: [], points: [] });
+  const routeLayersRef = useRef([]);
   const boundsRef = useRef(null);
 
   const [mode, setMode] = useState('feasibility');
@@ -96,6 +129,7 @@ function PipelineFeasibilityCheck() {
   const [targetPickMode, setTargetPickMode] = useState(false);
   const [damagePickMode, setDamagePickMode] = useState(false);
   const [selectedOptionKey, setSelectedOptionKey] = useState('optionA');
+  const [routeSnapshots, setRouteSnapshots] = useState({ optionA: null, optionB: null, loading: false, source: 'fallback' });
   const [flowScmh, setFlowScmh] = useState(300);
   const [minPressureBar, setMinPressureBar] = useState(1.5);
   const [material, setMaterial] = useState('PE100');
@@ -105,13 +139,91 @@ function PipelineFeasibilityCheck() {
   const [blinkPhase, setBlinkPhase] = useState(false);
   const [legendOpen, setLegendOpen] = useState(true);
   const [isolationTab, setIsolationTab] = useState('valves');
+  const [mapReady, setMapReady] = useState(false);
+  const [networkReady, setNetworkReady] = useState(false);
 
   const connectionOptions = useMemo(
     () => buildConnectionOptions(targetLocation, { flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM }),
-    [targetLocation, flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM],
+    [targetLocation, flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM, networkReady],
   );
   const selectedOption = connectionOptions[selectedOptionKey];
-  const isolationAssessment = useMemo(() => (damageLocation ? buildIsolationAssessment(damageLocation) : null), [damageLocation]);
+  const isolationAssessment = useMemo(() => (damageLocation ? buildIsolationAssessment(damageLocation) : null), [damageLocation, networkReady]);
+
+  const resolvedConnectionOptions = useMemo(() => {
+    const resolveOption = (option, routeSnapshot) => {
+      const routeGeometry = routeSnapshot?.geometry ?? [option.tapPoint, targetLocation];
+      const routeDistanceKm = routeSnapshot?.distanceKm ?? option.distanceKm;
+      const pressureLoss = pressureDropBar({
+        distanceKm: routeDistanceKm,
+        diameterMm: option.recommendedDiameterMm,
+        flowScmh,
+        material,
+        roughness,
+        gasTemperature,
+        elevationRiseM,
+      });
+      const terminalPressure = round2(option.startPressureBar - pressureLoss);
+
+      return {
+        ...option,
+        distanceKm: round2(routeDistanceKm),
+        pressureDropBar: pressureLoss,
+        terminalPressureBar: terminalPressure,
+        status: hydraulicStatus(terminalPressure, minPressureBar),
+        routeGeometry,
+        routeSource: routeSnapshot?.source ?? 'estimate',
+      };
+    };
+
+    return {
+      optionA: resolveOption(connectionOptions.optionA, routeSnapshots.optionA),
+      optionB: resolveOption(connectionOptions.optionB, routeSnapshots.optionB),
+    };
+  }, [connectionOptions, flowScmh, gasTemperature, elevationRiseM, material, minPressureBar, roughness, routeSnapshots, targetLocation]);
+
+  const selectedResolvedOption = resolvedConnectionOptions[selectedOptionKey];
+
+  useEffect(() => {
+    if (mode !== 'feasibility') {
+      setRouteSnapshots({ optionA: null, optionB: null, loading: false, source: 'fallback' });
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadRoutes = async () => {
+      setRouteSnapshots((current) => ({ ...current, loading: true }));
+      const [optionA, optionB] = await Promise.all([
+        fetchRoadRoute(connectionOptions.optionA.tapPoint, targetLocation),
+        fetchRoadRoute(connectionOptions.optionB.tapPoint, targetLocation),
+      ]);
+
+      if (cancelled) return;
+
+      setRouteSnapshots({ optionA, optionB, loading: false, source: optionA.source === 'osrm' && optionB.source === 'osrm' ? 'osrm' : 'fallback' });
+    };
+
+    loadRoutes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [connectionOptions.optionA.tapPoint, connectionOptions.optionB.tapPoint, mode, targetLocation]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRoadSnappedNetwork = async () => {
+      await ensureRoadSnappedNetwork();
+      if (!cancelled) setNetworkReady(true);
+    };
+
+    loadRoadSnappedNetwork();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isolationAssessment) return undefined;
@@ -146,16 +258,20 @@ function PipelineFeasibilityCheck() {
     };
 
     map.on('click', handleMapClick);
+    setMapReady(true);
 
     return () => {
       map.off('click', handleMapClick);
       map.remove();
       mapRef.current = null;
+      routeLayersRef.current.forEach((layer) => layer.remove());
+      routeLayersRef.current = [];
+      setMapReady(false);
     };
   }, [mode, targetPickMode, damagePickMode]);
 
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapReady || !mapRef.current) return;
 
     const map = mapRef.current;
     const clearLayers = () => {
@@ -163,6 +279,8 @@ function PipelineFeasibilityCheck() {
         layers.forEach((layer) => layer.remove());
       });
       layerRefs.current = { routes: [], rows: [], sources: [], valves: [], customers: [], points: [] };
+      routeLayersRef.current.forEach((layer) => layer.remove());
+      routeLayersRef.current = [];
     };
 
     const addLayer = (group, layer) => {
@@ -172,19 +290,21 @@ function PipelineFeasibilityCheck() {
 
     clearLayers();
 
-    SEGMENTS.forEach((segment) => {
-      const isActive = segment.permission.status === 'active';
-      const layer = addLayer(
-        'rows',
-        L.polyline(segment.geometry, {
-          color: isActive ? '#16a34a' : '#dc2626',
-          weight: 6,
-          opacity: 0.85,
-          dashArray: isActive ? undefined : '10 8',
-        }).addTo(map),
-      );
-      layer.bindPopup(`<b>${segment.id} · ${segment.name}</b><br>${segment.pipeSpecMm}mm PE · ${segment.operatingPressureBar} bar · ${segment.lengthKm} km<br>${segment.permission.note}`);
-    });
+    if (networkReady) {
+      SEGMENTS.forEach((segment) => {
+        const isActive = segment.permission.status === 'active';
+        const layer = addLayer(
+          'rows',
+          L.polyline(segment.geometry, {
+            color: isActive ? '#16a34a' : '#dc2626',
+            weight: 6,
+            opacity: 0.85,
+            dashArray: isActive ? undefined : '10 8',
+          }).addTo(map),
+        );
+        layer.bindPopup(`<b>${segment.id} · ${segment.name}</b><br>${segment.pipeSpecMm}mm PE · ${segment.operatingPressureBar} bar · ${segment.lengthKm} km<br>${segment.permission.note}`);
+      });
+    }
 
     Object.values(NODES).forEach((node) => {
       const marker = addLayer(
@@ -238,25 +358,40 @@ function PipelineFeasibilityCheck() {
         setTargetLocation({ lat: point.lat, lng: point.lng, name: 'Selected customer coordinates' });
       });
 
-      [connectionOptions.optionA, connectionOptions.optionB].forEach((option) => {
+      routeLayersRef.current.forEach((layer) => layer.remove());
+      routeLayersRef.current = [];
+
+      [resolvedConnectionOptions.optionA, resolvedConnectionOptions.optionB].forEach((option) => {
         const isSelected = option.key === selectedOptionKey;
-        option.overlay.forEach((piece) => {
-          const layer = addLayer(
-            'routes',
-            L.polyline(
-              piece.geometry.map((point) => [point.lat, point.lng]),
-              {
-                color: piece.tone === 'green' ? '#16a34a' : '#dc2626',
-                weight: isSelected ? 7 : 4,
-                opacity: isSelected ? 1 : 0.55,
-                dashArray: option.key === 'optionB' ? '3 8' : undefined,
-              },
-            ).addTo(map),
-          );
-          layer.bindPopup(`<b>${option.label}</b><br>${piece.label}`);
-          layer.on('click', () => setSelectedOptionKey(option.key));
-        });
+        const routeColor = option.key === 'optionA' ? '#16a34a' : '#2563eb';
+        const routeLayer = addLayer(
+          'routes',
+          L.polyline(
+            option.routeGeometry.map((point) => [point.lat, point.lng]),
+            {
+              color: routeColor,
+              weight: isSelected ? 7 : 4,
+              opacity: isSelected ? 1 : 0.7,
+              dashArray: option.key === 'optionB' ? '4 7' : undefined,
+            },
+          ).addTo(map),
+        );
+        routeLayer.bindPopup(
+          `<b>${option.label}</b><br>${routeSnapshots.source === 'osrm' ? 'Snapped to road network via OSRM' : 'Corridor estimate fallback'}<br>Route length ${formatDistance(option.distanceKm)}`,
+        );
+        routeLayer.on('click', () => setSelectedOptionKey(option.key));
+        routeLayersRef.current.push(routeLayer);
       });
+
+      if (routeSnapshots.loading) {
+        const loadingLayer = addLayer(
+          'points',
+          L.marker([targetLocation.lat, targetLocation.lng], {
+            icon: createMarkerIcon({ label: 'R', color: '#0f172a', badge: 'ROUTE' }),
+          }).addTo(map),
+        );
+        loadingLayer.bindPopup('<b>Routing</b><br>Snapping to the road network...');
+      }
     }
 
     if (mode === 'isolation' && damageLocation) {
@@ -274,9 +409,16 @@ function PipelineFeasibilityCheck() {
     }
 
     const boundsPoints = [];
-    SEGMENTS.forEach((segment) => boundsPoints.push(...segment.geometry));
+    if (networkReady) {
+      SEGMENTS.forEach((segment) => boundsPoints.push(...segment.geometry));
+    }
     if (mode === 'feasibility') boundsPoints.push([targetLocation.lat, targetLocation.lng]);
     if (mode === 'isolation' && damageLocation) boundsPoints.push([damageLocation.lat, damageLocation.lng]);
+    if (mode === 'feasibility') {
+      [resolvedConnectionOptions.optionA, resolvedConnectionOptions.optionB].forEach((option) => {
+        option.routeGeometry.forEach((point) => boundsPoints.push([point.lat, point.lng]));
+      });
+    }
 
     if (boundsPoints.length > 1) {
       const bounds = L.latLngBounds(boundsPoints);
@@ -287,7 +429,7 @@ function PipelineFeasibilityCheck() {
     return () => {
       clearLayers();
     };
-  }, [mode, connectionOptions, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, blinkPhase]);
+  }, [mapReady, networkReady, mode, resolvedConnectionOptions, routeSnapshots.loading, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, blinkPhase, targetPickMode, damagePickMode]);
 
   const handleRecenter = () => {
     if (mapRef.current && boundsRef.current) {
@@ -360,6 +502,7 @@ function PipelineFeasibilityCheck() {
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">New customer coordinates</p>
                     <h3 className="mt-1 text-lg font-semibold text-slate-900">{targetLocation.name}</h3>
                     <p className="mt-1 text-sm text-slate-500">Click anywhere on the map to place the new connection, or drag the marker directly.</p>
+                    {!networkReady && <p className="mt-2 text-xs font-semibold text-amber-700">Snapping existing network segments to the road service...</p>}
                   </div>
                   <MapPin className="h-5 w-5 text-emerald-600" aria-hidden="true" />
                 </div>
@@ -473,7 +616,7 @@ function PipelineFeasibilityCheck() {
 
               <div className="space-y-3">
                 <p className="px-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Connection options</p>
-                {[connectionOptions.optionA, connectionOptions.optionB].map((option) => {
+                {[resolvedConnectionOptions.optionA, resolvedConnectionOptions.optionB].map((option) => {
                   const active = option.key === selectedOptionKey;
                   return (
                     <button
@@ -509,6 +652,15 @@ function PipelineFeasibilityCheck() {
                         </div>
                       </div>
 
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        <span className={`rounded-full px-2.5 py-1 ${option.routeSource === 'osrm' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                          {option.routeSource === 'osrm' ? 'Road-snapped route' : 'Corridor estimate'}
+                        </span>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                          {option.routeGeometry.length} path points
+                        </span>
+                      </div>
+
                       <div className="mt-3 space-y-1.5">
                         {option.overlay.map((piece) => (
                           <div key={piece.key} className={`flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-medium ${piece.tone === 'green' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
@@ -520,6 +672,9 @@ function PipelineFeasibilityCheck() {
                     </button>
                   );
                 })}
+                <p className="px-1 text-[11px] text-slate-400">
+                  Routes are snapped to the road network with OSRM. If the service is unavailable, the screen falls back to a corridor estimate.
+                </p>
               </div>
             </>
           ) : (
@@ -690,8 +845,11 @@ function PipelineFeasibilityCheck() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Selected option</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{selectedOption?.label || 'No option selected'}</p>
-                  <p className="mt-1 text-sm text-slate-500">Tap point: {selectedOption?.tapPointName}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">{selectedResolvedOption?.label || 'No option selected'}</p>
+                  <p className="mt-1 text-sm text-slate-500">Tap point: {selectedResolvedOption?.tapPointName}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {(routeSnapshots.source === 'osrm' ? 'Road-snapped route' : 'Estimate route') + ' · ' + (routeSnapshots.loading ? 'updating route geometry...' : 'route geometry ready')}
+                  </p>
                 </div>
                 <Building2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
               </div>

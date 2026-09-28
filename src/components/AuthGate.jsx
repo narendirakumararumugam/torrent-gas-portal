@@ -30,7 +30,7 @@ function AuthGate({ onSignIn }) {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Enterprise Utility Portal</p>
-                <h1 className="text-xl font-semibold text-white">CNG Custom Self Service Portal</h1>
+                <h1 className="text-xl font-semibold text-white">PNG Custom Self Service Portal</h1>
               </div>
             </div>
             <p className="mt-8 text-sm leading-7 text-slate-300">
@@ -56,7 +56,7 @@ function AuthGate({ onSignIn }) {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-600/10 ring-1 ring-emerald-600/30">
               <Flame className="h-5 w-5 text-emerald-600" />
             </div>
-            <h1 className="text-lg font-semibold text-slate-900">CNG Custom Self Service Portal</h1>
+            <h1 className="text-lg font-semibold text-slate-900">PNG Custom Self Service Portal</h1>
           </div>
 
           <h2 className="mt-6 text-2xl font-semibold text-slate-900 lg:mt-0">Sign in to continue</h2>

@@ -23,7 +23,7 @@ function Sidebar({ navItems, activePath, onNavigate, mobileOpen, onCloseMobile, 
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/20 text-emerald-400 ring-1 ring-emerald-600/40">
                 <Flame className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-semibold text-white">CNG Portal</span>
+              <span className="text-sm font-semibold text-white">PNG Portal</span>
             </div>
           )}
           <button

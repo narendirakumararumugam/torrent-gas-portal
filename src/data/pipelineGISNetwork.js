@@ -126,6 +126,7 @@ export const SEGMENTS = [
     name: 'DRS-3 to Obulapuram Industrial Corridor',
     fromNode: 'DRS_3',
     toNode: 'CORRIDOR_END',
+    routeEndpointCustomerId: 'CUST-GMD-04',
     pipeSpecMm: 90,
     operatingPressureBar: 1.5,
     lengthKm: 2.9,
@@ -142,6 +143,85 @@ export const SEGMENTS = [
     ],
   },
 ];
+
+const ROUTING_SERVICE_URL = 'https://router.project-osrm.org/route/v1/driving';
+let roadSnappedNetworkPromise = null;
+
+function pointKey(point) {
+  return `${point.lat.toFixed(6)},${point.lng.toFixed(6)}`;
+}
+
+function uniqueOrderedPoints(points) {
+  const seen = new Set();
+  return points.filter((point) => {
+    const key = pointKey(point);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getRouteWaypoints(segment) {
+  const start = NODES[segment.fromNode];
+  const endpointCustomer = segment.routeEndpointCustomerId ? CUSTOMERS.find((customer) => customer.id === segment.routeEndpointCustomerId) : null;
+  const end = endpointCustomer || NODES[segment.toNode] || {
+    lat: segment.geometry[segment.geometry.length - 1][0],
+    lng: segment.geometry[segment.geometry.length - 1][1],
+  };
+
+  const chamberPoints = [...segment.chambers]
+    .sort((a, b) => a.chainageKm - b.chainageKm)
+    .map((chamber) => ({ lat: chamber.lat, lng: chamber.lng }));
+
+  return uniqueOrderedPoints([start, ...chamberPoints, end]);
+}
+
+async function fetchRoadRouteGeometry(waypoints) {
+  if (typeof fetch !== 'function' || waypoints.length < 2) return null;
+
+  const coordinates = waypoints.map((point) => `${point.lng},${point.lat}`).join(';');
+  const url = `${ROUTING_SERVICE_URL}/${coordinates}?alternatives=false&overview=full&geometries=geojson&steps=false`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Routing request failed');
+
+  const result = await response.json();
+  const route = result.routes?.[0];
+  if (!route?.geometry?.coordinates?.length) throw new Error('No road route returned');
+
+  return {
+    geometry: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
+    distanceKm: route.distance / 1000,
+  };
+}
+
+export async function ensureRoadSnappedNetwork() {
+  if (SEGMENTS.every((segment) => segment.roadGeometrySource === 'osrm')) return SEGMENTS;
+  if (roadSnappedNetworkPromise) return roadSnappedNetworkPromise;
+
+  roadSnappedNetworkPromise = Promise.all(
+    SEGMENTS.map(async (segment) => {
+      try {
+        const route = await fetchRoadRouteGeometry(getRouteWaypoints(segment));
+        if (route) {
+          segment.geometry = route.geometry;
+          segment.roadGeometryDistanceKm = round2(route.distanceKm);
+          segment.roadGeometrySource = 'osrm';
+          return segment;
+        }
+      } catch {
+        // Keep the authored corridor geometry when the routing service is unavailable.
+      }
+
+      segment.roadGeometrySource = segment.roadGeometrySource || 'fallback';
+      segment.roadGeometryDistanceKm = segment.roadGeometryDistanceKm || segment.lengthKm;
+      return segment;
+    }),
+  ).finally(() => {
+    roadSnappedNetworkPromise = null;
+  });
+
+  return roadSnappedNetworkPromise;
+}
 
 export const ALL_CHAMBERS = SEGMENTS.flatMap((segment) => segment.chambers.map((chamber) => ({ ...chamber, segmentId: segment.id })));
 

@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'cng-portal-customer-collab-v1';
-const CHANNEL_NAME = 'cng-portal-customer-collab';
+const STORAGE_KEY = 'png-portal-customer-collab-v1';
+const CHANNEL_NAME = 'png-portal-customer-collab';
 
 export const CUSTOMER_STATUS_OPTIONS = [
   'Monitoring',
@@ -37,7 +37,7 @@ function readState() {
 function writeState(state) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  window.dispatchEvent(new CustomEvent('cng-customer-collab-change', { detail: { storageKey: STORAGE_KEY } }));
+  window.dispatchEvent(new CustomEvent('png-customer-collab-change', { detail: { storageKey: STORAGE_KEY } }));
   if (window.BroadcastChannel) {
     const channel = new BroadcastChannel(CHANNEL_NAME);
     channel.postMessage({ type: 'sync' });
@@ -110,11 +110,11 @@ export function subscribeCustomerCollaboration(callback) {
   }
 
   window.addEventListener('storage', handleStorage);
-  window.addEventListener('cng-customer-collab-change', handleCustom);
+  window.addEventListener('png-customer-collab-change', handleCustom);
 
   return () => {
     window.removeEventListener('storage', handleStorage);
-    window.removeEventListener('cng-customer-collab-change', handleCustom);
+    window.removeEventListener('png-customer-collab-change', handleCustom);
     if (channel) channel.close();
   };
 }
