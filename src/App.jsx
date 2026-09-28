@@ -134,7 +134,7 @@ function App() {
   const profile = useMemo(() => {
     if (!auth) return null;
     return {
-      name: 'Ramesh Kumar',
+      name: auth.personaType === 'customer' ? 'Ramesh Kumar' : 'Vinesh',
       id: auth.personaType === 'customer' ? 'CUST001256' : 'EMP00781',
       category: auth.category,
     };
