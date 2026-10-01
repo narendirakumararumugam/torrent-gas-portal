@@ -11,6 +11,7 @@ import {
   MapPin,
   Route,
   ShieldCheck,
+  Send,
   TriangleAlert,
   Users,
   Wrench,
@@ -100,6 +101,10 @@ function toneForPermission(status) {
   return status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
 }
 
+function formatFeasibilityStatus(option) {
+  return `${option.status} · ${option.recommendedDiameterMm} mm MDPE`;
+}
+
 function createMarkerIcon({ label, color, className = '', badge }) {
   const badgeMarkup = badge ? `<span style="display:block;margin-top:2px;font-size:9px;font-weight:700;letter-spacing:0.08em;opacity:0.9">${badge}</span>` : '';
   return L.divIcon({
@@ -131,23 +136,47 @@ function PipelineFeasibilityCheck() {
   const [selectedOptionKey, setSelectedOptionKey] = useState('optionA');
   const [routeSnapshots, setRouteSnapshots] = useState({ optionA: null, optionB: null, loading: false, source: 'fallback' });
   const [flowScmh, setFlowScmh] = useState(300);
+  const [drsPressureBar, setDrsPressureBar] = useState(4);
   const [minPressureBar, setMinPressureBar] = useState(1.5);
   const [material, setMaterial] = useState('PE100');
   const [roughness, setRoughness] = useState(0.007);
   const [gasTemperature, setGasTemperature] = useState(25);
   const [elevationRiseM, setElevationRiseM] = useState(0.3);
-  const [blinkPhase, setBlinkPhase] = useState(false);
   const [legendOpen, setLegendOpen] = useState(true);
   const [isolationTab, setIsolationTab] = useState('valves');
+  const [customerMessage, setCustomerMessage] = useState('');
+  const [messageStatus, setMessageStatus] = useState(null);
+  const [sentMessageSummary, setSentMessageSummary] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [networkReady, setNetworkReady] = useState(false);
 
   const connectionOptions = useMemo(
-    () => buildConnectionOptions(targetLocation, { flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM }),
-    [targetLocation, flowScmh, minPressureBar, material, roughness, gasTemperature, elevationRiseM, networkReady],
+    () => buildConnectionOptions(targetLocation, { flowScmh, drsPressureBar, minPressureBar, material, roughness, gasTemperature, elevationRiseM }),
+    [targetLocation, flowScmh, drsPressureBar, minPressureBar, material, roughness, gasTemperature, elevationRiseM, networkReady],
   );
   const selectedOption = connectionOptions[selectedOptionKey];
   const isolationAssessment = useMemo(() => (damageLocation ? buildIsolationAssessment(damageLocation) : null), [damageLocation, networkReady]);
+
+  const isolationIncidentKey = isolationAssessment?.incidentLabel || '';
+
+  useEffect(() => {
+    setCustomerMessage('');
+    setMessageStatus(null);
+    setSentMessageSummary(null);
+  }, [isolationIncidentKey]);
+
+  const handleSendCustomerMessage = () => {
+    if (!isolationAssessment?.impactedCustomers.length || !customerMessage.trim()) return;
+
+    const recipients = isolationAssessment.impactedCustomers.map((customer) => customer.name).join(', ');
+    setSentMessageSummary({
+      recipients,
+      message: customerMessage.trim(),
+      sentAt: new Date().toLocaleString('en-IN'),
+    });
+    setMessageStatus('sent');
+    setCustomerMessage('');
+  };
 
   const resolvedConnectionOptions = useMemo(() => {
     const resolveOption = (option, routeSnapshot) => {
@@ -226,12 +255,6 @@ function PipelineFeasibilityCheck() {
   }, []);
 
   useEffect(() => {
-    if (!isolationAssessment) return undefined;
-    const timer = setInterval(() => setBlinkPhase((current) => !current), 650);
-    return () => clearInterval(timer);
-  }, [isolationAssessment]);
-
-  useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
 
     const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([MAP_CENTER.lat, MAP_CENTER.lng], 13);
@@ -302,7 +325,7 @@ function PipelineFeasibilityCheck() {
             dashArray: isActive ? undefined : '10 8',
           }).addTo(map),
         );
-        layer.bindPopup(`<b>${segment.id} · ${segment.name}</b><br>${segment.pipeSpecMm}mm PE · ${segment.operatingPressureBar} bar · ${segment.lengthKm} km<br>${segment.permission.note}`);
+        layer.bindPopup(`<b>${segment.id} · ${segment.name}</b><br>${segment.pipeSpecMm}mm MDPE · ${segment.lengthKm} km<br>${segment.permission.note}`);
       });
     }
 
@@ -317,10 +340,14 @@ function PipelineFeasibilityCheck() {
     });
 
     ALL_CHAMBERS.forEach((chamber) => {
-      const isBlinking = mode === 'isolation' && isolationAssessment?.isolationValves.some((valve) => valve.id === chamber.id) && blinkPhase;
+      const isBlinking = mode === 'isolation' && isolationAssessment?.isolationValves.some((valve) => valve.id === chamber.id);
+      // Nudge the marker away from an exactly co-located customer tap so both stay visible.
+      const isCustomerTap = CUSTOMERS.some((customer) => customer.valveChamberId === chamber.id);
+      const displayLat = isCustomerTap ? chamber.lat + 0.00045 : chamber.lat;
+      const displayLng = isCustomerTap ? chamber.lng - 0.00045 : chamber.lng;
       const marker = addLayer(
         'valves',
-        L.marker([chamber.lat, chamber.lng], {
+        L.marker([displayLat, displayLng], {
           icon: createMarkerIcon({ label: 'V', color: '#475569', badge: chamber.id, className: isBlinking ? 'gis-valve-blink' : '' }),
         }).addTo(map),
       );
@@ -333,11 +360,11 @@ function PipelineFeasibilityCheck() {
       const marker = addLayer(
         'customers',
         L.marker([customer.lat, customer.lng], {
-          icon: createMarkerIcon({ label: 'C', color: tone, badge: `${(customer.dailyVolumeScmd / 1000).toFixed(1)}k` }),
+          icon: createMarkerIcon({ label: 'C', color: tone, badge: `${(customer.dailyVolumeScmd / 1000).toFixed(1)}k`, className: impacted ? 'gis-valve-blink' : '' }),
         }).addTo(map),
       );
       marker.bindPopup(
-        `<b>${customer.name}</b><br>${customer.location}<br>${formatVolume(customer.dailyVolumeScmd)} · ${customer.peakFlowScmh} SCMH peak<br>Valve chamber: ${customer.valveChamberId}`,
+        `<b>${customer.name}</b><br>${customer.location}<br>${formatVolume(customer.dailyVolumeScmd)} · ${customer.peakFlowScmh} SCMH peak · ${customer.requiredPressureBar} bar<br>Valve chamber: ${customer.valveChamberId}`,
       );
       if (mode === 'isolation') {
         marker.on('click', () => setDamageLocation({ lat: customer.lat, lng: customer.lng, name: `${customer.name} service line` }));
@@ -429,7 +456,7 @@ function PipelineFeasibilityCheck() {
     return () => {
       clearLayers();
     };
-  }, [mapReady, networkReady, mode, resolvedConnectionOptions, routeSnapshots.loading, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, blinkPhase, targetPickMode, damagePickMode]);
+  }, [mapReady, networkReady, mode, resolvedConnectionOptions, routeSnapshots.loading, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, targetPickMode, damagePickMode]);
 
   const handleRecenter = () => {
     if (mapRef.current && boundsRef.current) {
@@ -451,7 +478,7 @@ function PipelineFeasibilityCheck() {
     ? [
         { label: 'Valves to close', value: isolationAssessment.isolationValves.length, detail: 'Blinking on the map for immediate closure.', icon: Wrench },
         { label: 'Customers impacted', value: isolationAssessment.impactedCustomers.length, detail: 'Require outage planning / advance notice.', icon: AlertTriangle },
-        { label: 'Lost daily volume', value: formatVolume(totalLostScmd), detail: 'Combined SCMD across impacted customers.', icon: Droplets },
+        { label: 'Affected customer volume', value: formatVolume(totalLostScmd), detail: 'Combined SCMD across impacted customers.', icon: Droplets },
         { label: 'Customers unaffected', value: isolationAssessment.unaffectedCustomers.length, detail: 'No pressure degradation expected.', icon: ShieldCheck },
       ]
     : [];
@@ -533,6 +560,16 @@ function PipelineFeasibilityCheck() {
                     />
                   </label>
                   <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    DRS pressure
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={drsPressureBar}
+                      onChange={(event) => setDrsPressureBar(Number(event.target.value))}
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                     Minimum terminal pressure
                     <input
                       type="number"
@@ -587,7 +624,7 @@ function PipelineFeasibilityCheck() {
               </CollapsibleSection>
 
               <CollapsibleSection
-                title="Segment permissions (SEC-01 to SEC-05)"
+                title={`Segment permissions (${SEGMENTS[0].id} to ${SEGMENTS[SEGMENTS.length - 1].id})`}
                 subtitle={`${permissionSummary.active} available · ${permissionSummary.pending} pending`}
                 icon={Layers3}
                 badge={
@@ -602,7 +639,7 @@ function PipelineFeasibilityCheck() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">{segment.id} · {segment.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{segment.pipeSpecMm}mm PE · {segment.operatingPressureBar} bar · {segment.lengthKm} km</p>
+                          <p className="mt-1 text-xs text-slate-500">{segment.pipeSpecMm}mm MDPE · {segment.lengthKm} km</p>
                         </div>
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneForPermission(segment.permission.status)}`}>
                           {segment.permission.status === 'active' ? 'Available' : 'Pending'}
@@ -630,7 +667,7 @@ function PipelineFeasibilityCheck() {
                           <p className="text-sm font-semibold text-slate-900">{option.label}</p>
                           <p className="mt-1 text-xs text-slate-500">Tap point: {option.tapPointName}</p>
                         </div>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneForStatus(option.status)}`}>{option.status}</span>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${toneForStatus(option.status)}`}>{formatFeasibilityStatus(option)}</span>
                       </div>
 
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -639,8 +676,8 @@ function PipelineFeasibilityCheck() {
                           <p className="mt-1 text-sm font-semibold text-slate-800">{formatDistance(option.distanceKm)}</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 px-3 py-2">
-                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Recommended pipe size</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-800">{option.recommendedDiameterMm} mm PE</p>
+                          <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">MDPE feasibility size</p>
+                          <p className="mt-1 text-sm font-semibold text-slate-800">{option.recommendedDiameterMm} mm MDPE</p>
                         </div>
                         <div className="rounded-xl bg-slate-50 px-3 py-2">
                           <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Pressure loss</p>
@@ -684,7 +721,7 @@ function PipelineFeasibilityCheck() {
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-600">Isolation / damage response</p>
                     <h3 className="mt-1 text-lg font-semibold text-slate-900">Click a segment or customer to simulate isolation</h3>
-                    <p className="mt-1 text-sm text-slate-500">Clicking a customer marker isolates only that service line; clicking the mainline isolates the section and everything downstream of it.</p>
+                    <p className="mt-1 text-sm text-slate-500">Click anywhere on a feeder pipe (or a customer marker) to find the nearest upstream and downstream valve chambers to close - both the valves and the affected customer blink on the map.</p>
                   </div>
                   <AlertTriangle className="h-5 w-5 text-rose-600" aria-hidden="true" />
                 </div>
@@ -700,7 +737,8 @@ function PipelineFeasibilityCheck() {
 
                 {isolationAssessment && (
                   <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-                    Incident: {isolationAssessment.incidentLabel}. Isolation valves are now blinking on the map.
+                    <p className="font-semibold">Incident: {isolationAssessment.incidentLabel}</p>
+                    <p className="mt-1">{isolationAssessment.actionSummary}</p>
                   </div>
                 )}
               </Card>
@@ -794,6 +832,57 @@ function PipelineFeasibilityCheck() {
                   </div>
                 </CollapsibleSection>
               )}
+
+              {isolationAssessment?.impactedCustomers.length > 0 && (
+                <Card className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Customer notification</p>
+                      <h3 className="mt-1 text-lg font-semibold text-slate-900">Send a message to affected customers</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Compose the outage notice once and send it to all impacted customers for this incident.
+                      </p>
+                    </div>
+                    <Send className="h-5 w-5 text-rose-600" aria-hidden="true" />
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.14em] text-slate-400" htmlFor="customer-message">
+                      Message to customers
+                    </label>
+                    <textarea
+                      id="customer-message"
+                      value={customerMessage}
+                      onChange={(event) => setCustomerMessage(event.target.value)}
+                      rows={4}
+                      placeholder="Example: Emergency maintenance is underway on the SNJ feeder. Supply will remain interrupted until the isolation section is repaired."
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                    />
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-slate-500">
+                        Recipients: {isolationAssessment.impactedCustomers.map((customer) => customer.name).join(', ')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleSendCustomerMessage}
+                        disabled={!customerMessage.trim()}
+                        className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+                      >
+                        <Send className="h-4 w-4" aria-hidden="true" />
+                        Send message
+                      </button>
+                    </div>
+                  </div>
+
+                  {messageStatus === 'sent' && sentMessageSummary && (
+                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                      <p className="font-semibold">Message sent</p>
+                      <p className="mt-1">Sent to {sentMessageSummary.recipients} at {sentMessageSummary.sentAt}.</p>
+                      <p className="mt-1 text-xs leading-5 text-emerald-700">{sentMessageSummary.message}</p>
+                    </div>
+                  )}
+                </Card>
+              )}
             </>
           )}
         </div>
@@ -859,7 +948,7 @@ function PipelineFeasibilityCheck() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Network at a glance</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">1 CGS · 3 DRS · 5 segments</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">1 CGS · 1 DRS · {SEGMENTS.length} segments</p>
                   <p className="mt-1 text-sm text-slate-500">{ALL_CHAMBERS.length} valve chambers across the network, {CUSTOMERS.length} connected customers.</p>
                 </div>
                 <Wrench className="h-5 w-5 text-emerald-600" aria-hidden="true" />
@@ -875,6 +964,7 @@ function PipelineFeasibilityCheck() {
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
                       <p className="mt-1 text-xs text-slate-500">{customer.location} · {NODES[customer.sourceDrsId]?.name} · {customer.valveChamberId}</p>
+                      <p className="mt-1 text-xs text-slate-400">{customer.dailyVolumeScmd.toLocaleString('en-IN')} SCMD · {customer.peakFlowScmh} SCMH · {customer.requiredPressureBar} bar</p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{formatVolume(customer.dailyVolumeScmd)}</span>
                   </div>

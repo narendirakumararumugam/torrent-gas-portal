@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
-  ArrowRightLeft,
   BarChart3,
   CalendarClock,
   CircleDollarSign,
@@ -92,9 +91,6 @@ const billingAverage = billingCycles.length ? round2(billingSpendTotal / billing
 const latestCycle = billingCycles[billingCycles.length - 1];
 const priorCycle = billingCycles[billingCycles.length - 2];
 const latestCycleVariance = latestCycle.invoiced - billingAverage;
-/* Forecast basis: historical average across every recorded cycle, uplifted by the contract's trend factor (not just the last two cycles) */
-const CYCLE_TREND_FACTOR = 1.02;
-const projectedNextCycle = round2(billingAverage * CYCLE_TREND_FACTOR);
 
 const julSpend = billingCycles.slice(0, 2).reduce((total, cycle) => total + cycle.invoiced, 0);
 const augSpend = billingCycles.slice(2, 4).reduce((total, cycle) => total + cycle.invoiced, 0);
@@ -170,7 +166,7 @@ const personaTabs = [
     key: 'finance',
     label: 'Finance Analysis',
     icon: CircleDollarSign,
-    description: 'Cost per unit, spend vs budget, and bill forecasting.',
+    description: 'Cost per unit, spend vs budget, and security exposure.',
   },
   {
     key: 'management',
@@ -433,10 +429,10 @@ function FinanceView() {
           tone={latestCycleVariance >= 0 ? 'text-rose-600' : 'text-emerald-700'}
         />
         <MetricCard
-          icon={ArrowRightLeft}
-          label="Next-cycle forecast"
-          value={formatCurrency(projectedNextCycle)}
-          detail={`Historical average of ${formatCurrency(billingAverage)} across all recorded cycles, uplifted by the contract's ${Math.round((CYCLE_TREND_FACTOR - 1) * 100)}% trend factor.`}
+          icon={ShieldCheck}
+          label="Security cover"
+          value={`${formatDecimal(securityCoverPercent, 1)}%`}
+          detail={`Available security of ${formatCurrency(availablePaymentSecurity)} against the latest bill.`}
         />
       </div>
 
@@ -493,8 +489,8 @@ function FinanceView() {
       <Card className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold text-slate-900">Cycle forecast table</p>
-            <p className="text-xs text-slate-500">Completed cycles plus the next projected billing amount.</p>
+            <p className="text-sm font-semibold text-slate-900">Billing cycle history</p>
+            <p className="text-xs text-slate-500">All completed fortnightly cycles on record.</p>
           </div>
           <Wallet className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
         </div>
@@ -507,12 +503,6 @@ function FinanceView() {
               <p className="mt-1 text-xs text-slate-500">Paid {formatCurrency(cycle.paid)} / due {cycle.dueDate}</p>
             </div>
           ))}
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">Forecast</p>
-            <p className="mt-2 text-sm font-semibold text-emerald-900">Upcoming cycle</p>
-            <p className="mt-1 text-lg font-bold text-emerald-900">{formatCurrency(projectedNextCycle)}</p>
-            <p className="mt-1 text-xs text-emerald-800">Projected from the latest run-rate and current slab mix.</p>
-          </div>
         </div>
       </Card>
     </div>
@@ -610,9 +600,9 @@ function ManagementView() {
             <p className="text-xs text-slate-500">August spend compared with July in the current record.</p>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Bill forecast</p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(projectedNextCycle)}</p>
-            <p className="text-xs text-slate-500">Expected next billing cycle if the current pattern persists.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">MGO compliance</p>
+            <p className={`mt-1 text-lg font-semibold ${mgoCompliant ? 'text-emerald-700' : 'text-rose-600'}`}>{mgoCompliant ? 'On track' : 'Shortfall'}</p>
+            <p className="text-xs text-slate-500">{mgoCompliant ? 'Monthly average meets the 90% DCQ obligation.' : `Average is ${formatDecimal(mgoShortfall, 1)} MMBTU/day below obligation.`}</p>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Billing history</p>

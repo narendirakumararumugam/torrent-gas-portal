@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Banknote, Gauge, ShieldCheck } from 'lucide-react';
-import Card from '../common/Card';
-import DeficitAlertModal from './DeficitAlertModal';
-import { formatINR } from '../../utils/billingFormat';
+import Card from './common/Card';
+import DeficitAlertModal from './billing/DeficitAlertModal';
+import { formatINR } from '../utils/commercialBillingEngine';
 
-/* Full-width, always-visible live exposure summary with auto-triggered shortfall alert */
-function ExposureBanner({ exposure }) {
+function CommercialExposureBanner({ exposure }) {
   const [alertOpen, setAlertOpen] = useState(exposure.isDeficient);
 
   useEffect(() => {
@@ -13,8 +12,8 @@ function ExposureBanner({ exposure }) {
   }, [exposure.isDeficient, exposure.deficit]);
 
   const metrics = [
-    { label: 'Last Fortnight Bill Value (as on SEPT 1st Fortnight)', value: exposure.lastFortnightBillValue, icon: Banknote, tone: 'text-blue-900' },
-    { label: 'Current Unbilled Value (as on yesterday)', value: exposure.currentUnbilledValue, icon: Gauge, tone: 'text-blue-900' },
+    { label: 'Last Fortnight Bill Value (Sep 2nd Fortnight)', value: exposure.lastFortnightBillValue, icon: Banknote, tone: 'text-blue-900' },
+    { label: 'Current Unbilled Value', value: exposure.currentUnbilledValue, icon: Gauge, tone: 'text-blue-900' },
     { label: 'Total Outstanding', value: exposure.totalOutstanding, icon: AlertTriangle, tone: exposure.isDeficient ? 'text-rose-600' : 'text-blue-900' },
     { label: 'Available Payment Security', value: exposure.availableSecurity, icon: ShieldCheck, tone: exposure.isDeficient ? 'text-rose-600' : 'text-emerald-600' },
   ];
@@ -49,4 +48,4 @@ function ExposureBanner({ exposure }) {
   );
 }
 
-export default ExposureBanner;
+export default CommercialExposureBanner;

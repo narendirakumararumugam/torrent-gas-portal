@@ -1,6 +1,6 @@
 import React from 'react';
 import BillsHeader from './billing/BillsHeader';
-import ExposureBanner from './billing/ExposureBanner';
+import CommercialExposureBanner from './CommercialExposureBanner';
 import SummaryCards from './billing/SummaryCards';
 import BillingHistoryChart from './billing/BillingHistoryChart';
 import InvoiceBreakdownTable from './billing/InvoiceBreakdownTable';
@@ -16,18 +16,17 @@ import {
   currentInvoiceBreakdown,
   supplierProfile,
   BILLING_REFERENCE_DATE,
-} from '../data/billsPayments';
-import { getCycleLedger, getExposureSummary, resolveInvoiceBreakdown, LATE_PAYMENT_INTEREST_RATE } from '../utils/billingEngine';
+} from '../data/commercialBillsPayments';
+import { getCycleLedger, getExposureSummary, resolveInvoiceBreakdown, LATE_PAYMENT_INTEREST_RATE } from '../utils/commercialBillingEngine';
 import { generateTaxInvoicePdf } from '../utils/invoicePdf';
 import { exportTableCsv } from '../utils/csvExport';
 
-/* Most recent cycle first, tagged FN1, FN2... for the invoice cycle picker */
-const invoiceCycleOptions = [...billingCycles].reverse().map((cycle, index) => ({
+const invoiceCycleOptions = [...billingCycles].reverse().map((cycle) => ({
   ...cycle,
   monthLabel: new Date(cycle.invoicedDate).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
 }));
 
-function BillingCenter({ onShowToast }) {
+function CommercialBillingCenter({ onShowToast }) {
   const ledger = getCycleLedger(billingCycles, BILLING_REFERENCE_DATE);
   const lastCycle = billingCycles[billingCycles.length - 1];
   const exposure = getExposureSummary({ lastCycle, unbilledCycle: currentUnbilledCycle, availableSecurity: availablePaymentSecurity });
@@ -63,7 +62,7 @@ function BillingCenter({ onShowToast }) {
         onGenerateLedger={handleGenerateLedger}
       />
 
-      <ExposureBanner exposure={exposure} />
+      <CommercialExposureBanner exposure={exposure} />
 
       <SummaryCards
         currentBill={{ amount: lastCycle.invoiced, dueDate: lastCycle.dueDate }}
@@ -85,4 +84,4 @@ function BillingCenter({ onShowToast }) {
   );
 }
 
-export default BillingCenter;
+export default CommercialBillingCenter;

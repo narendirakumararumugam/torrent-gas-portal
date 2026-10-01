@@ -34,19 +34,17 @@ function seededRandom(seedStr) {
 
 /* ---------- A. Infrastructure nodes ---------- */
 export const NODES = {
-  CGS: { id: 'CGS', name: 'Gummidipoondi Main CGS', lat: 13.4292, lng: 80.1008, pressureBar: 19 },
+  CGS: { id: 'CGS', name: 'Gummidipoondi Main CGS', lat: 13.419610141081023, lng: 80.11136078465744, pressureBar: 19 },
   DRS_1: { id: 'DRS_1', name: 'DRS-1 (SIPCOT Phase-1)', lat: 13.4108, lng: 80.1142, pressureBar: 4 },
-  DRS_2: { id: 'DRS_2', name: 'DRS-2 (SIPCOT Phase-2)', lat: 13.402, lng: 80.1315, pressureBar: 4 },
-  DRS_3: { id: 'DRS_3', name: 'DRS-3 (Obulapuram Zone)', lat: 13.3865, lng: 80.0865, pressureBar: 1.5 },
 };
 
-export const MAP_CENTER = { lat: 13.406, lng: 80.108 };
+export const MAP_CENTER = { lat: 13.417, lng: 80.106 };
 
 /* ---------- B. Pipeline segments (with valve chambers positioned along each) ---------- */
 export const SEGMENTS = [
   {
     id: 'SEC-01',
-    name: 'CGS to DRS-1 (via GNT Road)',
+    name: 'CGS to DRS-1 Main Feed',
     fromNode: 'CGS',
     toNode: 'DRS_1',
     pipeSpecMm: 180,
@@ -60,89 +58,128 @@ export const SEGMENTS = [
     permission: { status: 'active', authority: 'NHAI / PWD Approved', note: 'Available - laying turnaround 3 Days' },
     fromValveId: 'VC-01', fromValveLabel: 'VC-01 - CGS Outlet Valve',
     toValveId: 'DRS1-IN', toValveLabel: 'DRS-1 Inlet Valve',
-    chambers: [],
+    chambers: [
+      { id: 'V-12', name: 'V-12', chainageKm: 0.18, lat: 13.420655894488775, lng: 80.10955276383 },
+      { id: 'V-13', name: 'V-13', chainageKm: 1.45, lat: 13.416851845033149, lng: 80.10988434001735 },
+      { id: 'V-14', name: 'V-14', chainageKm: 2.78, lat: 13.412087565951559, lng: 80.11328181772306 },
+    ],
   },
   {
     id: 'SEC-02',
-    name: 'DRS-1 to SIPCOT Phase-1 Ring',
+    name: 'DRS-1 to SNJ India Glass feeder',
     fromNode: 'DRS_1',
-    toNode: 'RING_1',
+    toNode: 'SNJ_END',
+    routeEndpointCustomerId: 'CUST-GMD-01',
     pipeSpecMm: 125,
     operatingPressureBar: 4,
-    lengthKm: 2.5,
+    lengthKm: 1.6,
     geometry: [
       [NODES.DRS_1.lat, NODES.DRS_1.lng],
-      [13.4145, 80.1195],
-      [13.416, 80.1245],
+      [13.424, 80.1065],
+      [13.438753943617519, 80.08909148465743],
     ],
     permission: { status: 'active', authority: 'SIPCOT Clearance Active', note: 'Available - laying turnaround 3 Days' },
-    fromValveId: 'DRS1-OUT-02', fromValveLabel: 'DRS-1 Outlet Valve (Ring-1)',
-    toValveId: 'RING1-END', toValveLabel: 'Ring-1 End Cap',
+    fromValveId: 'DRS1-OUT-01', fromValveLabel: 'DRS-1 Outlet Valve (SNJ)',
+    toValveId: 'SNJ-END', toValveLabel: 'SNJ Feeder End Cap',
     chambers: [
-      { id: 'VC-02', name: 'VC-02 - Steel Melt Corp tap', chainageKm: 1.0, customerId: 'CUST-GMD-01', lat: 13.413, lng: 80.1178 },
-      { id: 'VC-03', name: 'VC-03 - Apex Auto Castings tap', chainageKm: 1.8, customerId: 'CUST-GMD-02', lat: 13.4152, lng: 80.1225 },
+      { id: 'V-01', name: 'V-01', chainageKm: 1.3, customerId: 'CUST-GMD-01', lat: 13.438753943617519, lng: 80.08909148465743 },
+      { id: 'V-06', name: 'V-06', chainageKm: 0.6, lat: 13.430471951451748, lng: 80.09886359653629 },
+      { id: 'V-07', name: 'V-07', chainageKm: 1.55, lat: 13.434619025645482, lng: 80.09397036889493 },
     ],
   },
   {
     id: 'SEC-03',
-    name: 'DRS-1 to DRS-2 Link Corridor',
+    name: 'DRS-1 to RE Sustainability feeder',
     fromNode: 'DRS_1',
-    toNode: 'DRS_2',
-    pipeSpecMm: 125,
+    toNode: 'RE_END',
+    routeEndpointCustomerId: 'CUST-GMD-02',
+    pipeSpecMm: 63,
     operatingPressureBar: 4,
-    lengthKm: 4.1,
+    lengthKm: 1.1,
     geometry: [
       [NODES.DRS_1.lat, NODES.DRS_1.lng],
-      [13.406, 80.123],
-      [NODES.DRS_2.lat, NODES.DRS_2.lng],
+      [13.4185, 80.109],
+      [13.417579737876803, 80.10494944232872],
     ],
-    permission: { status: 'pending', authority: 'Railway Crossing Approval', note: 'Pending - Railway Crossing Approval, 45 Days' },
-    fromValveId: 'VC-04', fromValveLabel: 'VC-04 - DRS-1 Link Valve',
-    toValveId: 'VC-05', toValveLabel: 'VC-05 - DRS-2 Link Valve',
-    chambers: [],
+    permission: { status: 'active', authority: 'Local Permission Active', note: 'Available - laying turnaround 3 Days' },
+    fromValveId: 'DRS1-OUT-02', fromValveLabel: 'DRS-1 Outlet Valve (RE)',
+    toValveId: 'RE-END', toValveLabel: 'RE Feeder End Cap',
+    chambers: [
+      { id: 'V-02', name: 'V-02', chainageKm: 1.0, customerId: 'CUST-GMD-02', lat: 13.417579737876803, lng: 80.10494944232872 },
+      { id: 'V-08', name: 'V-08', chainageKm: 0.45, lat: 13.418102436178275, lng: 80.10926848465883 },
+    ],
   },
   {
     id: 'SEC-04',
-    name: 'DRS-2 to SIPCOT Phase-2 North',
-    fromNode: 'DRS_2',
-    toNode: 'RING_2',
-    pipeSpecMm: 90,
+    name: 'DRS-1 to Jain Green Technologies feeder',
+    fromNode: 'DRS_1',
+    toNode: 'JAIN_END',
+    routeEndpointCustomerId: 'CUST-GMD-03',
+    pipeSpecMm: 63,
     operatingPressureBar: 4,
-    lengthKm: 1.8,
+    lengthKm: 0.8,
     geometry: [
-      [NODES.DRS_2.lat, NODES.DRS_2.lng],
-      [13.4055, 80.136],
-      [13.4085, 80.1395],
+      [NODES.DRS_1.lat, NODES.DRS_1.lng],
+      [13.409, 80.1115],
+      [13.406402647828726, 80.10540071349308],
     ],
-    permission: { status: 'active', authority: 'SIPCOT Clearance Active', note: 'Available - laying turnaround 3 Days' },
-    fromValveId: 'DRS2-OUT', fromValveLabel: 'DRS-2 Outlet Valve',
-    toValveId: 'RING2-END', toValveLabel: 'Ring-2 End Cap',
+    permission: { status: 'active', authority: 'Local Permission Active', note: 'Available - laying turnaround 3 Days' },
+    fromValveId: 'DRS1-OUT-03', fromValveLabel: 'DRS-1 Outlet Valve (Jain)',
+    toValveId: 'JAIN-END', toValveLabel: 'Jain Feeder End Cap',
     chambers: [
-      { id: 'VC-06', name: 'VC-06 - Crown Glass Ltd tap', chainageKm: 0.9, customerId: 'CUST-GMD-03', lat: 13.4045, lng: 80.1345 },
+      { id: 'V-03', name: 'V-03', chainageKm: 0.8, customerId: 'CUST-GMD-03', lat: 13.406402647828726, lng: 80.10540071349308 },
+      { id: 'V-09', name: 'V-09', chainageKm: 0.35, lat: 13.407849983498934, lng: 80.1087994497222 },
     ],
   },
   {
     id: 'SEC-05',
-    name: 'DRS-3 to Obulapuram Industrial Corridor',
-    fromNode: 'DRS_3',
-    toNode: 'CORRIDOR_END',
+    name: 'DRS-1 to SRF feeder',
+    fromNode: 'DRS_1',
+    toNode: 'SRF_END',
     routeEndpointCustomerId: 'CUST-GMD-04',
     pipeSpecMm: 90,
-    operatingPressureBar: 1.5,
-    lengthKm: 2.9,
+    operatingPressureBar: 4,
+    lengthKm: 1.0,
     geometry: [
-      [NODES.DRS_3.lat, NODES.DRS_3.lng],
-      [13.383, 80.092],
-      [13.3795, 80.0965],
+      [NODES.DRS_1.lat, NODES.DRS_1.lng],
+      [13.4144, 80.099],
+      [13.414299796237138, 80.09627563068511],
     ],
-    permission: { status: 'pending', authority: 'State Highway Expansion', note: 'Pending - State Highway Expansion, 30 Days' },
-    fromValveId: 'VC-07', fromValveLabel: 'VC-07 - DRS-3 Outlet Valve',
-    toValveId: 'CORRIDOR-END', toValveLabel: 'Corridor End Cap',
+    permission: { status: 'active', authority: 'Local Permission Active', note: 'Available - laying turnaround 3 Days' },
+    fromValveId: 'DRS1-OUT-04', fromValveLabel: 'DRS-1 Outlet Valve (SRF)',
+    toValveId: 'SRF-END', toValveLabel: 'SRF Feeder End Cap',
     chambers: [
-      { id: 'VC-08', name: 'VC-08 - Obulapuram Paper Mills tap', chainageKm: 1.6, customerId: 'CUST-GMD-04', lat: 13.3818, lng: 80.0945 },
+      { id: 'V-04', name: 'V-04', chainageKm: 0.9, customerId: 'CUST-GMD-04', lat: 13.414299796237138, lng: 80.09627563068511 },
+      { id: 'V-10', name: 'V-10', chainageKm: 0.4, lat: 13.414051959260865, lng: 80.10046950534301 },
+    ],
+  },
+  {
+    id: 'SEC-06',
+    name: 'DRS-1 to Sri balaji castings feeder',
+    fromNode: 'DRS_1',
+    toNode: 'BALAJI_END',
+    routeEndpointCustomerId: 'CUST-GMD-05',
+    pipeSpecMm: 63,
+    operatingPressureBar: 4,
+    lengthKm: 1.2,
+    geometry: [
+      [NODES.DRS_1.lat, NODES.DRS_1.lng],
+      [13.4188, 80.1088],
+      [13.422888447762878, 80.10542552883562],
+    ],
+    permission: { status: 'active', authority: 'Local Permission Active', note: 'Available - laying turnaround 3 Days' },
+    fromValveId: 'DRS1-OUT-05', fromValveLabel: 'DRS-1 Outlet Valve (Balaji)',
+    toValveId: 'BALAJI-END', toValveLabel: 'Balaji Feeder End Cap',
+    chambers: [
+      { id: 'V-05', name: 'V-05', chainageKm: 1.1, customerId: 'CUST-GMD-05', lat: 13.422888447762878, lng: 80.10542552883562 },
+      { id: 'V-11', name: 'V-11', chainageKm: 0.55, lat: 13.419878723869816, lng: 80.10790965657283 },
     ],
   },
 ];
+
+SEGMENTS.forEach((segment) => {
+  segment.isolationGeometry = segment.geometry.map(([lat, lng]) => [lat, lng]);
+});
 
 const ROUTING_SERVICE_URL = 'https://router.project-osrm.org/route/v1/driving';
 let roadSnappedNetworkPromise = null;
@@ -225,12 +262,50 @@ export async function ensureRoadSnappedNetwork() {
 
 export const ALL_CHAMBERS = SEGMENTS.flatMap((segment) => segment.chambers.map((chamber) => ({ ...chamber, segmentId: segment.id })));
 
+function getIsolationChambers(segment) {
+  const orderedChambers = [...segment.chambers]
+    .sort((a, b) => a.chainageKm - b.chainageKm)
+    .filter((chamber) => chamber.chainageKm >= 0);
+
+  const endpointChamber = segment.routeEndpointCustomerId
+    ? orderedChambers.find((chamber) => chamber.customerId === segment.routeEndpointCustomerId) || null
+    : null;
+
+  const limitChainage = endpointChamber ? endpointChamber.chainageKm : segment.lengthKm;
+  const controlChambers = orderedChambers.filter((chamber) => chamber.chainageKm <= limitChainage + 1e-6);
+
+  return { orderedChambers, controlChambers, limitChainage };
+}
+
+export function findImmediateIsolationValves(clickPoint) {
+  const nearestMainline = SEGMENTS.reduce((best, segment) => {
+    const projection = projectPointOnPolyline(clickPoint, segment.isolationGeometry || segment.geometry);
+    return !best || projection.distanceKm < best.distanceKm ? { segment, ...projection } : best;
+  }, null);
+
+  const segment = nearestMainline.segment;
+  const { controlChambers, limitChainage } = getIsolationChambers(segment);
+  const effectiveChainage = Math.min(nearestMainline.chainageKm, limitChainage);
+
+  const upstream = [...controlChambers].reverse().find((chamber) => chamber.chainageKm < effectiveChainage) || null;
+  const downstream = controlChambers.find((chamber) => chamber.chainageKm >= effectiveChainage) || controlChambers.at(-1) || null;
+
+  return {
+    segment,
+    chainageKm: effectiveChainage,
+    projected: nearestMainline.projected,
+    distanceKm: nearestMainline.distanceKm,
+    isolationValves: [upstream, downstream].filter(Boolean),
+  };
+}
+
 /* ---------- C. Existing customer base ---------- */
 export const CUSTOMERS = [
-  { id: 'CUST-GMD-01', name: 'Steel Melt Corp', location: 'SIPCOT Phase-1', sourceDrsId: 'DRS_1', dailyVolumeScmd: 12000, peakFlowScmh: 500, valveChamberId: 'VC-02', lat: 13.413, lng: 80.1178 },
-  { id: 'CUST-GMD-02', name: 'Apex Auto Castings', location: 'SIPCOT Phase-1', sourceDrsId: 'DRS_1', dailyVolumeScmd: 6000, peakFlowScmh: 250, valveChamberId: 'VC-03', lat: 13.4152, lng: 80.1225 },
-  { id: 'CUST-GMD-03', name: 'Crown Glass Ltd', location: 'SIPCOT Phase-2', sourceDrsId: 'DRS_2', dailyVolumeScmd: 18000, peakFlowScmh: 750, valveChamberId: 'VC-06', lat: 13.4045, lng: 80.1345 },
-  { id: 'CUST-GMD-04', name: 'Obulapuram Paper Mills', location: 'Obulapuram', sourceDrsId: 'DRS_3', dailyVolumeScmd: 3600, peakFlowScmh: 150, valveChamberId: 'VC-08', lat: 13.3818, lng: 80.0945 },
+  { id: 'CUST-GMD-01', name: 'SNJ India Glass ltd', location: 'Gummidipoondi', sourceDrsId: 'DRS_1', dailyVolumeScmd: 30000, peakFlowScmh: 1250, requiredPressureBar: 3.5, valveChamberId: 'V-01', lat: 13.438753943617519, lng: 80.08909148465743 },
+  { id: 'CUST-GMD-02', name: 'RE SUSTAINIBILITY IWM SOLUTIONS LTD', location: 'Gummidipoondi', sourceDrsId: 'DRS_1', dailyVolumeScmd: 3500, peakFlowScmh: 200, requiredPressureBar: 1.5, valveChamberId: 'V-02', lat: 13.417579737876803, lng: 80.10494944232872 },
+  { id: 'CUST-GMD-03', name: 'Jain Green Technologies Pvt Ltd', location: 'Gummidipoondi', sourceDrsId: 'DRS_1', dailyVolumeScmd: 10000, peakFlowScmh: 420, requiredPressureBar: 1.5, valveChamberId: 'V-03', lat: 13.406402647828726, lng: 80.10540071349308 },
+  { id: 'CUST-GMD-04', name: 'SRF Ltd.', location: 'Gummidipoondi', sourceDrsId: 'DRS_1', dailyVolumeScmd: 10000, peakFlowScmh: 420, requiredPressureBar: 3.5, valveChamberId: 'V-04', lat: 13.414299796237138, lng: 80.09627563068511 },
+  { id: 'CUST-GMD-05', name: 'Sri balaji castings private limited', location: 'Gummidipoondi', sourceDrsId: 'DRS_1', dailyVolumeScmd: 1600, peakFlowScmh: 100, requiredPressureBar: 1.5, valveChamberId: 'V-05', lat: 13.422888447762878, lng: 80.10542552883562 },
 ];
 
 export const DEFAULT_TARGET = { lat: 13.4138, lng: 80.121, name: 'Prospective customer site - SIPCOT Phase-1' };
@@ -335,7 +410,8 @@ export function buildConnectionOptions(clickPoint, params) {
   const segmentA = SEGMENTS.find((segment) => segment.id === nearestChamber.chamber.segmentId);
   const diameterA = recommendDiameterMm(nearestChamber.distanceKm, params.flowScmh);
   const dropA = pressureDropBar({ distanceKm: nearestChamber.distanceKm, diameterMm: diameterA, flowScmh: params.flowScmh, ...params });
-  const terminalA = round2(segmentA.operatingPressureBar - dropA);
+  const drsPressureBar = params.drsPressureBar ?? 4;
+  const terminalA = round2(drsPressureBar - dropA);
   const seedBase = `${clickPoint.lat.toFixed(5)}-${clickPoint.lng.toFixed(5)}`;
 
   const optionA = {
@@ -346,7 +422,7 @@ export function buildConnectionOptions(clickPoint, params) {
     parentSegmentId: segmentA.id,
     distanceKm: round2(nearestChamber.distanceKm),
     recommendedDiameterMm: diameterA,
-    startPressureBar: segmentA.operatingPressureBar,
+    startPressureBar: drsPressureBar,
     pressureDropBar: dropA,
     terminalPressureBar: terminalA,
     status: hydraulicStatus(terminalA, params.minPressureBar),
@@ -359,7 +435,7 @@ export function buildConnectionOptions(clickPoint, params) {
   }, null);
   const diameterB = recommendDiameterMm(nearestMainline.distanceKm, params.flowScmh);
   const dropB = pressureDropBar({ distanceKm: nearestMainline.distanceKm, diameterMm: diameterB, flowScmh: params.flowScmh, ...params });
-  const terminalB = round2(nearestMainline.segment.operatingPressureBar - dropB);
+  const terminalB = round2(drsPressureBar - dropB);
 
   const optionB = {
     key: 'optionB',
@@ -369,7 +445,7 @@ export function buildConnectionOptions(clickPoint, params) {
     parentSegmentId: nearestMainline.segment.id,
     distanceKm: round2(nearestMainline.distanceKm),
     recommendedDiameterMm: diameterB,
-    startPressureBar: nearestMainline.segment.operatingPressureBar,
+    startPressureBar: drsPressureBar,
     pressureDropBar: dropB,
     terminalPressureBar: terminalB,
     status: hydraulicStatus(terminalB, params.minPressureBar),
@@ -380,70 +456,27 @@ export function buildConnectionOptions(clickPoint, params) {
 }
 
 /* ---------- Emergency / maintenance isolation matrix ---------- */
-const CUSTOMER_CLICK_THRESHOLD_KM = 0.12;
-
-function collectDownstreamFromNode(nodeId, impacted) {
-  SEGMENTS.filter((segment) => segment.fromNode === nodeId).forEach((childSegment) => {
-    childSegment.chambers.forEach((chamber) => {
-      if (chamber.customerId && !impacted.some((item) => item.id === chamber.customerId)) {
-        const customer = CUSTOMERS.find((c) => c.id === chamber.customerId);
-        if (customer) impacted.push(customer);
-      }
-    });
-    collectDownstreamFromNode(childSegment.toNode, impacted);
-  });
+function describeIsolationValve(valve, direction) {
+  const customer = valve.customerId ? CUSTOMERS.find((item) => item.id === valve.customerId) : null;
+  const directionNote = direction === 'upstream' ? 'Upstream of the damage - cuts supply from the DRS side' : 'Downstream of the damage - cuts supply beyond this point';
+  return { id: valve.id, name: valve.name, note: customer ? `${directionNote} - directly feeds ${customer.name}` : directionNote };
 }
 
 export function buildIsolationAssessment(clickPoint) {
-  const nearestCustomer = CUSTOMERS.reduce((best, customer) => {
-    const distanceKm = haversineKm(clickPoint, customer);
-    return !best || distanceKm < best.distanceKm ? { customer, distanceKm } : best;
-  }, null);
-
-  if (nearestCustomer.distanceKm <= CUSTOMER_CLICK_THRESHOLD_KM) {
-    const customer = nearestCustomer.customer;
-    const chamber = ALL_CHAMBERS.find((item) => item.id === customer.valveChamberId);
-    return {
-      incidentType: 'Customer service line',
-      incidentLabel: `${customer.name} service connection`,
-      isolationValves: [{ id: chamber.id, name: chamber.name, note: 'Customer tap valve - mainline stays pressurized' }],
-      impactedCustomers: [{ ...customer, lostVolumeScmd: customer.dailyVolumeScmd }],
-      unaffectedCustomers: CUSTOMERS.filter((c) => c.id !== customer.id),
-      unaffectedZones: SEGMENTS.map((segment) => ({ id: segment.id, name: segment.name, note: 'Mainline pressure unaffected - isolation limited to this customer tap only.' })),
-    };
-  }
-
-  const nearestMainline = SEGMENTS.reduce((best, segment) => {
-    const projection = projectPointOnPolyline(clickPoint, segment.geometry);
-    return !best || projection.distanceKm < best.distanceKm ? { segment, ...projection } : best;
-  }, null);
-
+  const nearestMainline = findImmediateIsolationValves(clickPoint);
   const segment = nearestMainline.segment;
-  const boundaryPoints = [
-    { type: 'node', id: segment.fromValveId, name: segment.fromValveLabel, chainageKm: 0 },
-    ...segment.chambers.map((chamber) => ({ type: 'chamber', id: chamber.id, name: chamber.name, chainageKm: chamber.chainageKm, customerId: chamber.customerId })),
-    { type: 'node', id: segment.toValveId, name: segment.toValveLabel, chainageKm: segment.lengthKm },
-  ];
-
-  let upstreamIndex = 0;
-  for (let i = 0; i < boundaryPoints.length - 1; i += 1) {
-    if (nearestMainline.chainageKm >= boundaryPoints[i].chainageKm && nearestMainline.chainageKm <= boundaryPoints[i + 1].chainageKm) {
-      upstreamIndex = i;
-      break;
-    }
-  }
-  const upstream = boundaryPoints[upstreamIndex];
-  const downstream = boundaryPoints[upstreamIndex + 1];
+  const upstream = nearestMainline.isolationValves[0] || null;
+  const downstream = nearestMainline.isolationValves[1] || null;
+  const { limitChainage } = getIsolationChambers(segment);
+  const effectiveChainage = Math.min(nearestMainline.chainageKm, limitChainage);
 
   const impacted = [];
-  for (let i = upstreamIndex + 1; i < boundaryPoints.length; i += 1) {
-    const point = boundaryPoints[i];
-    if (point.type === 'chamber' && point.customerId) {
-      const customer = CUSTOMERS.find((c) => c.id === point.customerId);
-      if (customer) impacted.push(customer);
+  segment.chambers.forEach((chamber) => {
+    if (chamber.chainageKm >= effectiveChainage && chamber.customerId) {
+      const customer = CUSTOMERS.find((c) => c.id === chamber.customerId);
+      if (customer && !impacted.some((item) => item.id === customer.id)) impacted.push(customer);
     }
-  }
-  collectDownstreamFromNode(segment.toNode, impacted);
+  });
 
   const impactedIds = new Set(impacted.map((customer) => customer.id));
   const unaffectedCustomers = CUSTOMERS.filter((customer) => !impactedIds.has(customer.id));
@@ -453,13 +486,22 @@ export function buildIsolationAssessment(clickPoint) {
     note: `${NODES[item.fromNode]?.name || item.fromNode} corridor remains pressurized - no dependency on the isolated section.`,
   }));
 
+  const isolationValves = [
+    ...(upstream ? [describeIsolationValve(upstream, 'upstream')] : []),
+    ...(downstream ? [describeIsolationValve(downstream, 'downstream')] : []),
+  ];
+  const valveNames = isolationValves.map((valve) => valve.name).join(' and ');
+  const actionSummary = isolationValves.length === 0
+    ? 'No isolating valve chamber was found near this point.'
+    : impacted.length > 0
+      ? `Close ${valveNames} to isolate the damage. ${impacted.map((customer) => customer.name).join(', ')} will lose supply until the section is repaired.`
+      : `Close ${valveNames} to isolate the damaged section. No customer taps lie downstream of this point.`;
+
   return {
-    incidentType: 'Mainline segment',
+    incidentType: 'Pipeline segment',
     incidentLabel: `${segment.id} - ${segment.name} (chainage ${nearestMainline.chainageKm.toFixed(2)} km)`,
-    isolationValves: [
-      { id: upstream.id, name: upstream.name, note: 'Upstream isolation point' },
-      { id: downstream.id, name: downstream.name, note: 'Downstream isolation point' },
-    ],
+    actionSummary,
+    isolationValves,
     impactedCustomers: impacted.map((customer) => ({ ...customer, lostVolumeScmd: customer.dailyVolumeScmd })),
     unaffectedCustomers,
     unaffectedZones,

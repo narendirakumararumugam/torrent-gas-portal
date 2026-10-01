@@ -1,7 +1,7 @@
 import React from 'react';
 import Card from '../common/Card';
 import Badge from '../common/Badge';
-import { formatINR, LATE_PAYMENT_INTEREST_RATE } from '../../utils/billingEngine';
+import { formatINR } from '../../utils/billingFormat';
 
 const statusToneMap = {
   paid: 'paid',
@@ -19,12 +19,12 @@ const statusLabelMap = {
   pending: 'Pending',
 };
 
-function AgingLedgerTable({ ledger }) {
+function AgingLedgerTable({ ledger, interestRate }) {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-slate-200 px-5 py-4">
         <p className="text-sm font-semibold text-blue-950">Aging &amp; Interest Ledger</p>
-        <p className="text-xs text-slate-500">Late interest accrues at {LATE_PAYMENT_INTEREST_RATE}% p.a. on unpaid principal</p>
+        <p className="text-xs text-slate-500">Late interest accrues at {interestRate}% p.a. on unpaid principal</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">

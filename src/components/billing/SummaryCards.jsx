@@ -1,7 +1,7 @@
 import React from 'react';
 import { CalendarClock, CheckCircle2, Hourglass, TrendingDown } from 'lucide-react';
 import Card from '../common/Card';
-import { formatINR } from '../../utils/billingEngine';
+import { formatINR } from '../../utils/billingFormat';
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });

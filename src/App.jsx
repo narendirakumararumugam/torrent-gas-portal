@@ -4,11 +4,19 @@ import AppHeader from './components/AppHeader';
 import Sidebar from './components/Sidebar';
 import ConnectionTracker from './components/ConnectionTracker';
 import ContractSummary from './components/ContractSummary';
+import CommercialContractSummary from './components/CommercialContractSummary';
 import BillingCenter from './components/BillingCenter';
+import CommercialBillingCenter from './components/CommercialBillingCenter';
 import ReportsHub from './components/ReportsHub';
+import CommercialReportsHub from './components/CommercialReportsHub';
 import PersonaDashboard from './components/PersonaDashboard';
+import CommercialPersonaDashboard from './components/CommercialPersonaDashboard';
 import ComplaintDesk from './components/ComplaintDesk';
 import TariffBoard from './components/TariffBoard';
+import CommercialTariffBoard from './components/CommercialTariffBoard';
+import NotificationsCenter from './components/NotificationsCenter';
+import CommercialNotificationsCenter from './components/CommercialNotificationsCenter';
+import ServiceRequests from './components/ServiceRequests';
 import SupportCenter from './components/SupportCenter';
 import CorporateWorkspace from './components/CorporateWorkspace';
 import ApprovalsPanel from './components/ApprovalsPanel';
@@ -23,6 +31,10 @@ import { generateDownload } from './utils/download';
 const AUTH_STORAGE_KEY = 'png-portal-auth';
 const DEFAULT_CUSTOMER_PATH = '/customer/connection';
 const LOGIN_PATH = '/login';
+
+function getCustomerDefaultPath(category) {
+  return category === 'Commercial Customer' ? '/customer/contracts' : DEFAULT_CUSTOMER_PATH;
+}
 
 function loadAuth() {
   try {
@@ -91,7 +103,7 @@ function App() {
     if (!auth) return;
 
     const allowedPaths = auth.personaType === 'customer' ? customerNav.map((item) => item.path) : buildDepartmentNav(auth.category).map((item) => item.path);
-    const defaultPath = auth.personaType === 'customer' ? DEFAULT_CUSTOMER_PATH : getDefaultDepartmentPath(auth.category);
+    const defaultPath = auth.personaType === 'customer' ? getCustomerDefaultPath(auth.category) : getDefaultDepartmentPath(auth.category);
 
     if (!allowedPaths.includes(pathname) || pathname === LOGIN_PATH) {
       navigate(defaultPath, true);
@@ -103,7 +115,7 @@ function App() {
   const handleSignIn = ({ personaType, category, userId }) => {
     const nextAuth = { personaType, category, userId };
     setAuth(nextAuth);
-    navigate(personaType === 'customer' ? DEFAULT_CUSTOMER_PATH : getDefaultDepartmentPath(category), true);
+    navigate(personaType === 'customer' ? getCustomerDefaultPath(category) : getDefaultDepartmentPath(category), true);
     showToast(`Signed in as ${category}`);
   };
 
@@ -130,12 +142,14 @@ function App() {
   };
 
   const submitComplaint = () => showToast('Complaint submitted successfully');
+  const submitServiceRequest = () => showToast('Service request submitted successfully');
 
   const profile = useMemo(() => {
     if (!auth) return null;
+    const isCommercialCustomer = auth.personaType === 'customer' && auth.category === 'Commercial Customer';
     return {
-      name: auth.personaType === 'customer' ? 'Ramesh Kumar' : 'Vinesh',
-      id: auth.personaType === 'customer' ? 'CUST001256' : 'EMP00781',
+      name: auth.personaType === 'customer' ? (isCommercialCustomer ? 'Aisha Khan' : 'Ramesh Kumar') : 'Vinesh',
+      id: auth.personaType === 'customer' ? (isCommercialCustomer ? 'CUST009881' : 'CUST001256') : 'EMP00781',
       category: auth.category,
     };
   }, [auth]);
@@ -144,21 +158,26 @@ function App() {
 
   const renderContent = () => {
     if (!auth) return null;
+    const isCommercialCustomer = auth.personaType === 'customer' && auth.category === 'Commercial Customer';
 
     if (auth.personaType === 'customer') {
       switch (pathname) {
         case '/customer/contracts':
-          return <ContractSummary onDownload={downloadContract} onShowToast={showToast} />;
+          return isCommercialCustomer ? <CommercialContractSummary onDownload={downloadContract} /> : <ContractSummary onDownload={downloadContract} onShowToast={showToast} />;
         case '/customer/billing':
-          return <BillingCenter onShowToast={showToast} />;
+          return isCommercialCustomer ? <CommercialBillingCenter onShowToast={showToast} /> : <BillingCenter onShowToast={showToast} />;
         case '/customer/reports':
-          return <ReportsHub onDownload={downloadReport} onShowToast={showToast} audience="customer" />;
+          return isCommercialCustomer ? <CommercialReportsHub onDownload={downloadReport} onShowToast={showToast} /> : <ReportsHub onDownload={downloadReport} onShowToast={showToast} audience="customer" />;
         case '/customer/persona-dashboard':
-          return <PersonaDashboard />;
+          return isCommercialCustomer ? <CommercialPersonaDashboard /> : <PersonaDashboard />;
         case '/customer/complaint':
           return <ComplaintDesk onSubmit={submitComplaint} />;
         case '/customer/tariff':
-          return <TariffBoard />;
+          return isCommercialCustomer ? <CommercialTariffBoard /> : <TariffBoard />;
+        case '/customer/notifications':
+          return isCommercialCustomer ? <CommercialNotificationsCenter /> : <NotificationsCenter />;
+        case '/customer/service-requests':
+          return <ServiceRequests onSubmit={submitServiceRequest} />;
         case '/customer/support':
           return <SupportCenter />;
         case '/customer/connection':

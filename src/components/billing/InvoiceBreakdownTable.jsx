@@ -1,6 +1,6 @@
 import React from 'react';
 import Card from '../common/Card';
-import { formatINR, getInvoiceTotals } from '../../utils/billingEngine';
+import { formatINR, getInvoiceTotals } from '../../utils/billingFormat';
 
 function InvoiceBreakdownTable({ invoiceBreakdown, cycleLabel }) {
   const { subtotal, vat, total } = getInvoiceTotals(invoiceBreakdown);

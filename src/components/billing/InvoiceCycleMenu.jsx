@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Download } from 'lucide-react';
-import { formatINR } from '../../utils/billingEngine';
+import { formatINR } from '../../utils/billingFormat';
 
 /* Navy "Download Tax Invoice" trigger - opens a menu to pick the fortnight before generating the PDF */
 function InvoiceCycleMenu({ cycles, onSelect }) {

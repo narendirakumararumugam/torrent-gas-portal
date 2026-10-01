@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import Card from '../common/Card';
-import { formatINR } from '../../utils/billingEngine';
+import { formatINR } from '../../utils/billingFormat';
 
 /* High-priority popup auto-triggered when outstanding exposure exceeds available security */
 function DeficitAlertModal({ exposure, onClose }) {

@@ -2,19 +2,19 @@ import React, { useState } from 'react';
 import { Sparkles, X } from 'lucide-react';
 import Card from '../common/Card';
 
-const focusOptions = [
+const defaultFocusOptions = [
   { value: 'consumption_timeseries', label: 'Consumption' },
   { value: 'price_slab', label: 'Price Slab' },
   { value: 'mgo_flowrate', label: 'MGO & Flow Rate' },
 ];
 
 /* Ad-hoc report builder: pick metric focus + date range + grouping, then generate */
-function CustomReportBuilder({ onClose, onGenerate }) {
+function CustomReportBuilder({ onClose, onGenerate, focusOptions = defaultFocusOptions, defaultFrom = '2026-08-01', defaultTo = '2026-09-23' }) {
   const [name, setName] = useState('My Custom Report');
   const [type, setType] = useState(focusOptions[0].value);
   const [granularity, setGranularity] = useState('daily');
-  const [from, setFrom] = useState('2026-08-01');
-  const [to, setTo] = useState('2026-09-23');
+  const [from, setFrom] = useState(defaultFrom);
+  const [to, setTo] = useState(defaultTo);
 
   const handleSubmit = (event) => {
     event.preventDefault();

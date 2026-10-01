@@ -1,7 +1,6 @@
-// Industrial-only billing math: fortnightly exposure, aging and late-payment interest.
 import { calcLateInterest as calcLateInterestGeneric, daysBetween, formatINR, getInvoiceTotals } from './billingFormat';
 
-export const LATE_PAYMENT_INTEREST_RATE = 15.65; // % per annum, per contract terms
+export const LATE_PAYMENT_INTEREST_RATE = 15.65;
 export const STANDARD_GRACE_BUSINESS_DAYS = 5;
 
 export { formatINR, daysBetween, getInvoiceTotals };
@@ -10,7 +9,6 @@ export function calcLateInterest(principal, overdueDays, annualRatePercent = LAT
   return calcLateInterestGeneric(principal, overdueDays, annualRatePercent);
 }
 
-/* Derives per-cycle aging: outstanding principal, delay beyond the due date, accrued interest and status */
 export function getCycleLedger(cycles, referenceDateISO) {
   return cycles.map((cycle) => {
     const outstanding = Math.max(0, cycle.invoiced - cycle.paid);
@@ -31,7 +29,6 @@ export function getCycleLedger(cycles, referenceDateISO) {
   });
 }
 
-/* Aggregates the live exposure banner figures and flags a security shortfall */
 export function getExposureSummary({ lastCycle, unbilledCycle, availableSecurity }) {
   const lastFortnightBillValue = lastCycle.invoiced;
   const currentUnbilledValue = unbilledCycle.usageToDate;
@@ -52,8 +49,6 @@ export function getExposureSummary({ lastCycle, unbilledCycle, availableSecurity
   };
 }
 
-/* Resolves a full slab breakdown for any historical cycle, prorating the reference cycle's slab
-   ratios when the requested cycle isn't the one with an authoritative stored breakdown */
 export function resolveInvoiceBreakdown(cycle, referenceBreakdown) {
   if (cycle.id === referenceBreakdown.cycleId) {
     return { ...referenceBreakdown, ...getInvoiceTotals(referenceBreakdown) };

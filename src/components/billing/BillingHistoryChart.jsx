@@ -2,7 +2,7 @@ import React from 'react';
 import { Bar } from 'react-chartjs-2';
 import { BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js';
 import Card from '../common/Card';
-import { formatINR } from '../../utils/billingEngine';
+import { formatINR } from '../../utils/billingFormat';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Legend, Tooltip);
 

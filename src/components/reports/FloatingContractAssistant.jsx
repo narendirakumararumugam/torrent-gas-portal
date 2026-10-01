@@ -26,15 +26,11 @@ const invoiceRows = currentInvoiceBreakdown.rows.map((row) => ({ ...row, quantit
 const currentExcessRow = invoiceRows.find((row) => String(row.label).toLowerCase().includes('excess')) || invoiceRows[invoiceRows.length - 1];
 
 const latestCycle = billingCycles[billingCycles.length - 1];
-/* Forecast basis matches Persona Dashboard's Finance view: historical average across all recorded cycles + 2% trend factor */
-const billingAverage = round2(billingCycles.reduce((total, cycle) => total + cycle.invoiced, 0) / billingCycles.length);
-const projectedNextCycle = round2(billingAverage * 1.02);
 
 const quickPrompts = [
   'Why is my bill higher than expected?',
   'Will I miss the minimum off-take obligation?',
   'How can I reduce excess slab charges?',
-  'What is the next billing cycle forecast?',
 ];
 
 function generateAssistantReply(message) {
@@ -48,15 +44,11 @@ function generateAssistantReply(message) {
     return `Your monthly protection floor is ${minimumObligation} MMBTU/day, based on 90% of the ${contractDcq} MMBTU DCQ. You still have ${allowanceRemaining} shutdown/maintenance days left this year. If a low-load period is coming, place it inside those allowance days so the average draw stays protected and take-or-pay penalties are avoided.`;
   }
 
-  if (normalized.includes('forecast') || normalized.includes('next bill') || normalized.includes('upcoming cycle') || normalized.includes('future bill')) {
-    return `Based on the recent fortnights, the next billing cycle is projected near ${formatCurrency(projectedNextCycle)}. That forecast assumes the current draw pattern continues. If peak days are shaved below ${contractMdcq} MMBTU, the actual bill should move down further.`;
-  }
-
   if (normalized.includes('contract') || normalized.includes('dcq') || normalized.includes('mdcq') || normalized.includes('rate')) {
     return `The contract is currently active with a DCQ of ${contractDcq} MMBTU and an MDCQ of ${contractMdcq} MMBTU. The latest invoice is split across MGO, Non-MGO, and Excess slabs; the assistant can explain the commercial effect of each clause, the load-shaping options, and the settlement impact.`;
   }
 
-  return `I can help interpret the contract, bill spikes, off-take risk, and forecasted spend. For example, ask why the bill is higher, how to avoid Excess slab charges, or how to use shutdown allowance days to protect the minimum monthly average.`;
+  return `I can help interpret the contract, bill spikes, and off-take risk. For example, ask why the bill is higher, how to avoid Excess slab charges, or how to use shutdown allowance days to protect the minimum monthly average.`;
 }
 
 /* Floating bottom-right chat launcher - keeps the AI assistant out of the main report layout until requested */

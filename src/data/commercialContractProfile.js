@@ -1,0 +1,63 @@
+export const commercialContractProfile = {
+  contractNumber: 'CGN-COM-2025-SEB-01',
+  status: 'active',
+  company: {
+    name: 'Seabreeze Hospitality Pvt. Ltd.',
+    address: 'No. 18, East Coast Road, Chennai, Tamil Nadu, India - 600041',
+    email: 'operations@seabreezehotel.in',
+    phone: '+91 94440 22110',
+    agreementSignedDate: '08 Apr 2025',
+    commissionedDate: '21 May 2025',
+  },
+  terms: {
+    category: 'Commercial',
+    establishmentType: 'Hotel & Restaurant',
+    dailyAverageVolume: '78 SCM/day',
+    peakHourlyDemand: '18 SCMH',
+    deliveryPressure: '1.5 bar(g)',
+    meterType: 'G6 Rotary Meter',
+  },
+  history: [
+    {
+      id: 'commercial-amendment-0',
+      title: 'Commercial supply agreement executed',
+      status: 'Inception',
+      executedOn: '08 Apr 2025',
+      effectivePeriod: '08 Apr 2025',
+      summary: 'Flat-rate commercial gas agreement executed for the hotel and restaurant premises.',
+      changes: [
+        { label: 'Customer Category', before: 'Not set', after: 'Commercial' },
+        { label: 'Establishment Type', before: 'Not set', after: 'Hotel & Restaurant' },
+        { label: 'Daily Avg Volume', before: 'Not set', after: '72 SCM/day' },
+        { label: 'Peak Hourly Demand', before: 'Not set', after: '16 SCMH' },
+        { label: 'Delivery Pressure', before: '--', after: '1.2 bar(g)' },
+        { label: 'Meter Type', before: '--', after: 'G6 Rotary Meter' },
+      ],
+    },
+    {
+      id: 'commercial-amendment-1',
+      title: 'September demand review',
+      status: 'Review',
+      executedOn: '12 Sep 2026',
+      effectivePeriod: '16 Sep 2026',
+      summary: 'Load profile updated ahead of the September second-fortnight billing cycle.',
+      changes: [
+        { label: 'Daily Avg Volume', before: '72 SCM/day', after: '78 SCM/day' },
+        { label: 'Peak Hourly Demand', before: '16 SCMH', after: '18 SCMH' },
+        { label: 'Delivery Pressure', before: '1.2 bar(g)', after: '1.5 bar(g)' },
+      ],
+    },
+    {
+      id: 'commercial-amendment-2',
+      title: 'Second-fortnight billing confirmation',
+      status: 'Confirmed',
+      executedOn: '20 Sep 2026',
+      effectivePeriod: '16 Sep 2026 - 30 Sep 2026',
+      summary: 'Commercial invoice terms confirmed for the latest September bill.',
+      changes: [
+        { label: 'Customer Category', before: 'Commercial', after: 'Commercial' },
+        { label: 'Establishment Type', before: 'Hotel & Restaurant', after: 'Hotel & Restaurant' },
+      ],
+    },
+  ],
+};

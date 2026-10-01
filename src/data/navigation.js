@@ -1,5 +1,7 @@
 import {
+  Bell,
   Building2,
+  ClipboardList,
   CloudDownload,
   FileText,
   HelpCircle,
@@ -24,6 +26,8 @@ export const customerNav = [
   { id: 'complaint', label: 'Register Complaint', icon: MessageSquareMore, path: '/customer/complaint' },
   { id: 'tariff', label: 'Tariff Information', icon: Sparkles, path: '/customer/tariff' },
   { id: 'support', label: 'Support & Help', icon: HelpCircle, path: '/customer/support' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, path: '/customer/notifications' },
+  { id: 'service-requests', label: 'Service Requests', icon: ClipboardList, path: '/customer/service-requests' },
 ];
 
 export const marketingNav = [
