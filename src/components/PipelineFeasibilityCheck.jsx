@@ -25,12 +25,17 @@ import {
   ALL_CHAMBERS,
   CUSTOMERS,
   DEFAULT_TARGET,
+  INTERNAL_ALERT_TEAM,
   MAP_CENTER,
   NODES,
+  PRESSURE_ALERT_THRESHOLD_BAR,
   SEGMENTS,
   buildConnectionOptions,
+  buildDrsCapacityProjection,
   buildIsolationAssessment,
   ensureRoadSnappedNetwork,
+  getCustomerPressureStatuses,
+  getDrsLoadSummary,
   hydraulicStatus,
   pressureDropBar,
 } from '../data/pipelineGISNetwork';
@@ -47,6 +52,12 @@ const modeOptions = [
     label: 'Isolation / Damage',
     icon: TriangleAlert,
     description: 'Click a pipeline segment or a customer point to simulate maintenance or damage isolation.',
+  },
+  {
+    key: 'pressure',
+    label: 'Pressure Status',
+    icon: Gauge,
+    description: `Live terminal pressure for every connected customer, calculated from real pipeline distance. Anyone below ${PRESSURE_ALERT_THRESHOLD_BAR.toFixed(1)} bar triggers a WhatsApp + email alert to the internal team.`,
   },
 ];
 
@@ -121,12 +132,13 @@ function createMarkerIcon({ label, color, className = '', badge }) {
   });
 }
 
-function PipelineFeasibilityCheck() {
+function PipelineFeasibilityCheck({ onShowToast }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const layerRefs = useRef({ routes: [], rows: [], sources: [], valves: [], customers: [], points: [] });
   const routeLayersRef = useRef([]);
   const boundsRef = useRef(null);
+  const autoAlertedRef = useRef(new Set());
 
   const [mode, setMode] = useState('feasibility');
   const [targetLocation, setTargetLocation] = useState(DEFAULT_TARGET);
@@ -136,6 +148,7 @@ function PipelineFeasibilityCheck() {
   const [selectedOptionKey, setSelectedOptionKey] = useState('optionA');
   const [routeSnapshots, setRouteSnapshots] = useState({ optionA: null, optionB: null, loading: false, source: 'fallback' });
   const [flowScmh, setFlowScmh] = useState(300);
+  const [newCustomerDailyVolumeScmd, setNewCustomerDailyVolumeScmd] = useState(5000);
   const [drsPressureBar, setDrsPressureBar] = useState(4);
   const [minPressureBar, setMinPressureBar] = useState(1.5);
   const [material, setMaterial] = useState('PE100');
@@ -149,6 +162,10 @@ function PipelineFeasibilityCheck() {
   const [sentMessageSummary, setSentMessageSummary] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [networkReady, setNetworkReady] = useState(false);
+  const [scenarioDrsPressureBar, setScenarioDrsPressureBar] = useState(NODES.DRS_1.pressureBar);
+  const [demandMultiplier, setDemandMultiplier] = useState(1);
+  const [autoAlertEnabled, setAutoAlertEnabled] = useState(true);
+  const [alertLog, setAlertLog] = useState([]);
 
   const connectionOptions = useMemo(
     () => buildConnectionOptions(targetLocation, { flowScmh, drsPressureBar, minPressureBar, material, roughness, gasTemperature, elevationRiseM }),
@@ -156,6 +173,52 @@ function PipelineFeasibilityCheck() {
   );
   const selectedOption = connectionOptions[selectedOptionKey];
   const isolationAssessment = useMemo(() => (damageLocation ? buildIsolationAssessment(damageLocation) : null), [damageLocation, networkReady]);
+
+  const drsLoadSummary = useMemo(() => getDrsLoadSummary('DRS_1'), []);
+  const capacityProjection = useMemo(
+    () => buildDrsCapacityProjection('DRS_1', newCustomerDailyVolumeScmd, flowScmh),
+    [newCustomerDailyVolumeScmd, flowScmh],
+  );
+  const pressureStatuses = useMemo(
+    () => getCustomerPressureStatuses({ drsPressureBar: scenarioDrsPressureBar, demandMultiplier }),
+    [scenarioDrsPressureBar, demandMultiplier],
+  );
+  const lowPressureCustomers = useMemo(() => pressureStatuses.filter((customer) => customer.belowAlertThreshold), [pressureStatuses]);
+
+  const handleSendPressureAlert = (customer, channel) => {
+    const entry = {
+      id: `${customer.id}-${channel}-${Date.now()}`,
+      customerName: customer.name,
+      channel,
+      trigger: 'Manual',
+      pressureBar: customer.actualPressureBar,
+      sentAt: new Date().toLocaleString('en-IN'),
+    };
+    setAlertLog((current) => [entry, ...current]);
+    onShowToast?.(`${channel === 'whatsapp' ? 'WhatsApp' : 'Email'} alert sent to ${INTERNAL_ALERT_TEAM.name} for ${customer.name} (${formatPressure(customer.actualPressureBar)}).`);
+  };
+
+  useEffect(() => {
+    const currentIds = new Set(lowPressureCustomers.map((customer) => customer.id));
+    autoAlertedRef.current.forEach((id) => {
+      if (!currentIds.has(id)) autoAlertedRef.current.delete(id);
+    });
+
+    if (!autoAlertEnabled) return;
+
+    lowPressureCustomers.forEach((customer) => {
+      if (autoAlertedRef.current.has(customer.id)) return;
+      autoAlertedRef.current.add(customer.id);
+
+      const sentAt = new Date().toLocaleString('en-IN');
+      setAlertLog((current) => [
+        { id: `${customer.id}-whatsapp-auto-${Date.now()}`, customerName: customer.name, channel: 'whatsapp', trigger: 'Automatic', pressureBar: customer.actualPressureBar, sentAt },
+        { id: `${customer.id}-email-auto-${Date.now()}`, customerName: customer.name, channel: 'email', trigger: 'Automatic', pressureBar: customer.actualPressureBar, sentAt },
+        ...current,
+      ]);
+      onShowToast?.(`Auto-alert: WhatsApp + email sent to ${INTERNAL_ALERT_TEAM.name} for ${customer.name} (${formatPressure(customer.actualPressureBar)}).`);
+    });
+  }, [lowPressureCustomers, autoAlertEnabled]);
 
   const isolationIncidentKey = isolationAssessment?.incidentLabel || '';
 
@@ -356,15 +419,20 @@ function PipelineFeasibilityCheck() {
 
     CUSTOMERS.forEach((customer) => {
       const impacted = isolationAssessment?.impactedCustomers.some((item) => item.id === customer.id);
-      const tone = mode === 'isolation' && isolationAssessment ? (impacted ? '#dc2626' : '#16a34a') : '#334155';
+      const pressureInfo = pressureStatuses.find((item) => item.id === customer.id);
+      const tone = mode === 'isolation' && isolationAssessment
+        ? (impacted ? '#dc2626' : '#16a34a')
+        : mode === 'pressure'
+          ? (pressureInfo?.belowAlertThreshold ? '#dc2626' : '#16a34a')
+          : '#334155';
       const marker = addLayer(
         'customers',
         L.marker([customer.lat, customer.lng], {
-          icon: createMarkerIcon({ label: 'C', color: tone, badge: `${(customer.dailyVolumeScmd / 1000).toFixed(1)}k`, className: impacted ? 'gis-valve-blink' : '' }),
+          icon: createMarkerIcon({ label: 'C', color: tone, badge: `${(customer.dailyVolumeScmd / 1000).toFixed(1)}k`, className: impacted || (mode === 'pressure' && pressureInfo?.belowAlertThreshold) ? 'gis-valve-blink' : '' }),
         }).addTo(map),
       );
       marker.bindPopup(
-        `<b>${customer.name}</b><br>${customer.location}<br>${formatVolume(customer.dailyVolumeScmd)} · ${customer.peakFlowScmh} SCMH peak · ${customer.requiredPressureBar} bar<br>Valve chamber: ${customer.valveChamberId}`,
+        `<b>${customer.name}</b><br>${customer.location}<br>${formatVolume(customer.dailyVolumeScmd)} · ${customer.peakFlowScmh} SCMH peak · required ${customer.requiredPressureBar} bar<br>Actual pressure: ${formatPressure(pressureInfo?.actualPressureBar ?? customer.requiredPressureBar)}<br>Valve chamber: ${customer.valveChamberId}`,
       );
       if (mode === 'isolation') {
         marker.on('click', () => setDamageLocation({ lat: customer.lat, lng: customer.lng, name: `${customer.name} service line` }));
@@ -456,7 +524,7 @@ function PipelineFeasibilityCheck() {
     return () => {
       clearLayers();
     };
-  }, [mapReady, networkReady, mode, resolvedConnectionOptions, routeSnapshots.loading, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, targetPickMode, damagePickMode]);
+  }, [mapReady, networkReady, mode, resolvedConnectionOptions, routeSnapshots.loading, selectedOptionKey, targetLocation, damageLocation, isolationAssessment, targetPickMode, damagePickMode, pressureStatuses]);
 
   const handleRecenter = () => {
     if (mapRef.current && boundsRef.current) {
@@ -494,7 +562,7 @@ function PipelineFeasibilityCheck() {
       <div className="grid gap-6 xl:grid-cols-[390px_1fr]">
         <div className="space-y-4">
           <Card className="p-1.5">
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               {modeOptions.map((option) => {
                 const active = mode === option.key;
                 const Icon = option.icon;
@@ -544,6 +612,47 @@ function PipelineFeasibilityCheck() {
                 </button>
               </Card>
 
+              <Card className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">DRS load & remaining capacity</p>
+                    <h3 className="mt-1 text-lg font-semibold text-slate-900">{NODES.DRS_1.name}</h3>
+                    <p className="mt-1 text-sm text-slate-500">Calculated from the {drsLoadSummary.customerCount} customers already tapped off this DRS over the installed MDPE network.</p>
+                  </div>
+                  <Gauge className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Existing DRS load</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{formatVolume(drsLoadSummary.existingLoadScmd)}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{drsLoadSummary.existingLoadScmh} SCMH peak · {drsLoadSummary.utilizationScmdPercent}% of capacity</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 p-3">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-600">New customer load</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-800">{formatVolume(capacityProjection.newLoadScmd)}</p>
+                    <p className="mt-1 text-[11px] text-emerald-600">{capacityProjection.newLoadScmh} SCMH peak added</p>
+                  </div>
+                  <div className={`rounded-xl p-3 ${capacityProjection.withinCapacity ? 'bg-amber-50' : 'bg-rose-50'}`}>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">DRS load after addition</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{formatVolume(capacityProjection.projectedLoadScmd)}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{capacityProjection.projectedUtilizationScmdPercent}% of capacity</p>
+                  </div>
+                  <div className={`rounded-xl p-3 ${capacityProjection.withinCapacity ? 'bg-emerald-50' : 'bg-rose-50'}`}>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-slate-400">Remaining capacity after addition</p>
+                    <p className={`mt-1 text-sm font-semibold ${capacityProjection.withinCapacity ? 'text-emerald-700' : 'text-rose-700'}`}>{formatVolume(capacityProjection.remainingAfterScmd)}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">of {formatVolume(drsLoadSummary.capacityScmd)} total DRS capacity</p>
+                  </div>
+                </div>
+
+                {!capacityProjection.withinCapacity && (
+                  <p className="mt-3 flex items-center gap-1.5 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    Adding this customer exceeds {NODES.DRS_1.name}'s rated capacity - a DRS upgrade or load rebalancing is required.
+                  </p>
+                )}
+              </Card>
+
               <CollapsibleSection
                 title="Hydraulic parameters"
                 subtitle={`${flowScmh.toLocaleString('en-IN')} SCMH peak · min ${minPressureBar.toFixed(1)} bar`}
@@ -556,6 +665,15 @@ function PipelineFeasibilityCheck() {
                       type="number"
                       value={flowScmh}
                       onChange={(event) => setFlowScmh(Number(event.target.value))}
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Daily volume (new customer)
+                    <input
+                      type="number"
+                      value={newCustomerDailyVolumeScmd}
+                      onChange={(event) => setNewCustomerDailyVolumeScmd(Number(event.target.value))}
                       className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-emerald-600"
                     />
                   </label>
@@ -714,7 +832,7 @@ function PipelineFeasibilityCheck() {
                 </p>
               </div>
             </>
-          ) : (
+          ) : mode === 'isolation' ? (
             <>
               <Card className="p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -884,6 +1002,153 @@ function PipelineFeasibilityCheck() {
                 </Card>
               )}
             </>
+          ) : (
+            <>
+              <Card className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">Pressure status</p>
+                    <h3 className="mt-1 text-lg font-semibold text-slate-900">Live terminal pressure by customer</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Calculated from each customer's actual chainage back to {NODES.DRS_1.name} on the installed MDPE network. Any customer below {PRESSURE_ALERT_THRESHOLD_BAR.toFixed(1)} bar triggers a WhatsApp and email alert to the internal team.
+                    </p>
+                  </div>
+                  <Gauge className="h-5 w-5 text-sky-600" aria-hidden="true" />
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    DRS source pressure (scenario)
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={scenarioDrsPressureBar}
+                      onChange={(event) => setScenarioDrsPressureBar(Number(event.target.value))}
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-sky-600"
+                    />
+                  </label>
+                  <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Peak demand multiplier
+                    <input
+                      type="range"
+                      min="1"
+                      max="2"
+                      step="0.05"
+                      value={demandMultiplier}
+                      onChange={(event) => setDemandMultiplier(Number(event.target.value))}
+                      className="mt-3.5 w-full accent-sky-600"
+                    />
+                    <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-slate-800">{demandMultiplier.toFixed(2)}x peak flow</span>
+                  </label>
+                </div>
+
+                <label className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+                  <span>
+                    <span className="block text-sm font-semibold text-slate-900">Auto-send alerts</span>
+                    <span className="block text-xs text-slate-500">Automatically notify the internal team the moment a customer drops below {PRESSURE_ALERT_THRESHOLD_BAR.toFixed(1)} bar.</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={autoAlertEnabled}
+                    onChange={(event) => setAutoAlertEnabled(event.target.checked)}
+                    className="h-5 w-5 shrink-0 accent-sky-600"
+                  />
+                </label>
+              </Card>
+
+              <Card className="p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Network pressure summary</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-slate-200 p-3">
+                    <p className="text-[11px] uppercase leading-4 tracking-[0.14em] text-slate-400">Customers monitored</p>
+                    <p className="mt-1.5 text-lg font-semibold text-slate-900">{pressureStatuses.length}</p>
+                  </div>
+                  <div className={`rounded-2xl border p-3 ${lowPressureCustomers.length > 0 ? 'border-rose-200 bg-rose-50' : 'border-emerald-200 bg-emerald-50'}`}>
+                    <p className={`text-[11px] uppercase leading-4 tracking-[0.14em] ${lowPressureCustomers.length > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>Below {PRESSURE_ALERT_THRESHOLD_BAR.toFixed(1)} bar</p>
+                    <p className={`mt-1.5 text-lg font-semibold ${lowPressureCustomers.length > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{lowPressureCustomers.length}</p>
+                  </div>
+                </div>
+              </Card>
+
+              {lowPressureCustomers.length > 0 && (
+                <Card className="border-rose-200 bg-rose-50/60 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600" aria-hidden="true" />
+                    <div>
+                      <p className="text-sm font-semibold text-rose-900">Low-pressure alert</p>
+                      <p className="mt-1 text-xs text-rose-700">Send a manual notification now, or rely on auto-alert above.</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {lowPressureCustomers.map((customer) => (
+                      <div key={customer.id} className="rounded-xl border border-rose-200 bg-white p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
+                            <p className="mt-1 text-xs text-slate-500">{formatPressure(customer.actualPressureBar)} actual · {formatDistance(customer.distanceKm)} from {NODES.DRS_1.name}</p>
+                          </div>
+                          <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">Below {PRESSURE_ALERT_THRESHOLD_BAR.toFixed(1)} bar</span>
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSendPressureAlert(customer, 'whatsapp')}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                          >
+                            <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                            WhatsApp
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendPressureAlert(customer, 'email')}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            <Send className="h-3.5 w-3.5" aria-hidden="true" />
+                            Email
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              <CollapsibleSection title="Alert log" subtitle={`${alertLog.length} notification(s) sent this session`} icon={Send}>
+                {alertLog.length === 0 ? (
+                  <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-center text-sm text-slate-500">No alerts sent yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {alertLog.map((entry) => (
+                      <div key={entry.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                        <p className="font-semibold text-slate-900">{entry.customerName}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {entry.channel === 'whatsapp' ? `WhatsApp to ${INTERNAL_ALERT_TEAM.whatsappNumber}` : `Email to ${INTERNAL_ALERT_TEAM.email}`} · {entry.trigger} · {entry.sentAt}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">Pressure at trigger: {formatPressure(entry.pressureBar)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CollapsibleSection>
+
+              <CollapsibleSection title="All customers - pressure detail" subtitle={`${pressureStatuses.length} connections on ${NODES.DRS_1.name}`} icon={Droplets}>
+                <div className="space-y-2">
+                  {pressureStatuses.map((customer) => (
+                    <div key={customer.id} className={`rounded-2xl border p-3 ${customer.belowAlertThreshold ? 'border-rose-200 bg-rose-50' : 'border-slate-200'}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{formatDistance(customer.distanceKm)} · {customer.pipeSpecMm}mm MDPE · required {formatPressure(customer.requiredPressureBar)}</p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${customer.belowAlertThreshold ? 'bg-rose-100 text-rose-700' : toneForStatus(customer.status)}`}>
+                          {formatPressure(customer.actualPressureBar)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleSection>
+            </>
           )}
         </div>
 
@@ -958,18 +1223,28 @@ function PipelineFeasibilityCheck() {
 
           <CollapsibleSection title="Existing customer base" subtitle={`${CUSTOMERS.length} industrial customers connected`} icon={Users}>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              {CUSTOMERS.map((customer) => (
-                <div key={customer.id} className="rounded-2xl border border-slate-200 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">{customer.location} · {NODES[customer.sourceDrsId]?.name} · {customer.valveChamberId}</p>
-                      <p className="mt-1 text-xs text-slate-400">{customer.dailyVolumeScmd.toLocaleString('en-IN')} SCMD · {customer.peakFlowScmh} SCMH · {customer.requiredPressureBar} bar</p>
+              {CUSTOMERS.map((customer) => {
+                const pressureInfo = pressureStatuses.find((item) => item.id === customer.id);
+                return (
+                  <div key={customer.id} className="rounded-2xl border border-slate-200 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{customer.name}</p>
+                        <p className="mt-1 text-xs text-slate-500">{customer.location} · {NODES[customer.sourceDrsId]?.name} · {customer.valveChamberId}</p>
+                        <p className="mt-1 text-xs text-slate-400">{customer.dailyVolumeScmd.toLocaleString('en-IN')} SCMD · {customer.peakFlowScmh} SCMH · required {customer.requiredPressureBar} bar</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{formatVolume(customer.dailyVolumeScmd)}</span>
+                        {pressureInfo && (
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${pressureInfo.belowAlertThreshold ? 'bg-rose-100 text-rose-700' : toneForStatus(pressureInfo.status)}`}>
+                            {formatPressure(pressureInfo.actualPressureBar)} actual
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{formatVolume(customer.dailyVolumeScmd)}</span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CollapsibleSection>
         </div>

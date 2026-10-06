@@ -13,7 +13,7 @@ function ExposureBanner({ exposure }) {
   }, [exposure.isDeficient, exposure.deficit]);
 
   const metrics = [
-    { label: 'Last Fortnight Bill Value (as on SEPT 1st Fortnight)', value: exposure.lastFortnightBillValue, icon: Banknote, tone: 'text-blue-900' },
+    { label: 'Carry forward', value: exposure.totalOutstanding - exposure.currentUnbilledValue, icon: Banknote, tone: 'text-blue-900' },
     { label: 'Current Unbilled Value (as on yesterday)', value: exposure.currentUnbilledValue, icon: Gauge, tone: 'text-blue-900' },
     { label: 'Total Outstanding', value: exposure.totalOutstanding, icon: AlertTriangle, tone: exposure.isDeficient ? 'text-rose-600' : 'text-blue-900' },
     { label: 'Available Payment Security', value: exposure.availableSecurity, icon: ShieldCheck, tone: exposure.isDeficient ? 'text-rose-600' : 'text-emerald-600' },

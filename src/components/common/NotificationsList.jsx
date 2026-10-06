@@ -22,19 +22,22 @@ function severityRank(severity) {
 }
 
 /* Shared presentational list - industrial/commercial wrappers each build their own `notifications` array */
-function NotificationsList({ notifications, customerName }) {
+function NotificationsList({
+  notifications,
+  customerName,
+  eyebrow = 'Alerts',
+  title = 'Notifications',
+  description = `Real-time billing, security, service, and tariff alerts for ${customerName}.`,
+  emptyLabel = "You're all caught up - no active notifications.",
+}) {
   const sorted = [...notifications].sort((a, b) => severityRank(a.severity) - severityRank(b.severity));
 
   return (
     <div className="space-y-6">
-      <SectionHeading
-        eyebrow="Alerts"
-        title="Notifications"
-        description={`Real-time billing, security, service, and tariff alerts for ${customerName}.`}
-      />
+      <SectionHeading eyebrow={eyebrow} title={title} description={description} />
 
       {sorted.length === 0 ? (
-        <Card className="p-6 text-center text-sm text-slate-500">You're all caught up - no active notifications.</Card>
+        <Card className="p-6 text-center text-sm text-slate-500">{emptyLabel}</Card>
       ) : (
         <div className="space-y-3">
           {sorted.map((item) => {

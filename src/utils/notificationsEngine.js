@@ -92,3 +92,53 @@ export function buildTariffNotification(history, unit) {
     date: latest.period,
   };
 }
+
+/* Settled cycles before the latest one - the latest cycle's due/overdue state is already surfaced on the dashboard. */
+export function buildPastBillingNotifications(cycles, formatCurrency) {
+  return cycles.slice(0, -1).map((cycle) => ({
+    id: `settled-${cycle.id}`,
+    type: 'billing',
+    severity: 'info',
+    title: `${cycle.label} invoice settled`,
+    detail: `${formatCurrency(cycle.paid)} was paid in full${cycle.paidDate ? ` on ${cycle.paidDate}` : ''}.`,
+    date: cycle.paidDate || cycle.dueDate,
+  }));
+}
+
+/* Closed tickets only - open/in-progress tickets are active alerts, not history. */
+export function buildResolvedComplaintNotifications(tickets) {
+  return tickets
+    .filter((ticket) => ticket.status === 'resolved')
+    .map((ticket) => ({
+      id: `ticket-${ticket.id}`,
+      type: 'service',
+      severity: 'info',
+      title: `Ticket ${ticket.id} resolved`,
+      detail: `${ticket.category} raised on ${ticket.date} has been closed.`,
+      date: ticket.date,
+    }));
+}
+
+/* Every prior rate change except the most recent transition, which is already called out on the dashboard. */
+export function buildPastTariffNotifications(history, unit) {
+  if (!history || history.length < 3) return [];
+  const field = 'mgo' in history[0] ? 'mgo' : 'rate';
+  const notifications = [];
+
+  for (let index = 1; index < history.length - 1; index += 1) {
+    const previous = history[index - 1];
+    const current = history[index];
+    if (current[field] === previous[field]) continue;
+    const increased = current[field] > previous[field];
+    notifications.push({
+      id: `tariff-${current.period}`,
+      type: 'tariff',
+      severity: 'info',
+      title: `Tariff rate ${increased ? 'increased' : 'decreased'} for ${current.period}`,
+      detail: `Rate moved from ₹${previous[field].toFixed(2)} to ₹${current[field].toFixed(2)} per ${unit}.`,
+      date: current.period,
+    });
+  }
+
+  return notifications;
+}

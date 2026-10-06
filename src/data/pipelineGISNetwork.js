@@ -508,3 +508,99 @@ export function buildIsolationAssessment(clickPoint) {
   };
 }
 
+/* ---------- D. DRS capacity & pressure-status engine (real segment distances, installed MDPE pipe only) ---------- */
+export const DRS_CAPACITY = {
+  DRS_1: { capacityScmd: 70000, capacityScmh: 3000 },
+};
+
+/* Network-wide alert threshold - independent of each customer's own contractual minimum pressure */
+export const PRESSURE_ALERT_THRESHOLD_BAR = 1.5;
+
+export const INTERNAL_ALERT_TEAM = {
+  name: 'O&M Control Room',
+  whatsappNumber: '+91 98765 43210',
+  email: 'om-control@torrentgas.in',
+};
+
+function sumCustomerField(customers, field) {
+  return round2(customers.reduce((total, customer) => total + customer[field], 0));
+}
+
+/* Existing load already drawn from a DRS, independent of any prospective new connection */
+export function getDrsLoadSummary(drsId = 'DRS_1') {
+  const drsCustomers = CUSTOMERS.filter((customer) => customer.sourceDrsId === drsId);
+  const capacity = DRS_CAPACITY[drsId] || { capacityScmd: 0, capacityScmh: 0 };
+  const existingLoadScmd = sumCustomerField(drsCustomers, 'dailyVolumeScmd');
+  const existingLoadScmh = sumCustomerField(drsCustomers, 'peakFlowScmh');
+
+  return {
+    drsId,
+    customerCount: drsCustomers.length,
+    capacityScmd: capacity.capacityScmd,
+    capacityScmh: capacity.capacityScmh,
+    existingLoadScmd,
+    existingLoadScmh,
+    remainingCapacityScmd: round2(capacity.capacityScmd - existingLoadScmd),
+    remainingCapacityScmh: round2(capacity.capacityScmh - existingLoadScmh),
+    utilizationScmdPercent: capacity.capacityScmd ? round2((existingLoadScmd / capacity.capacityScmd) * 100) : 0,
+    utilizationScmhPercent: capacity.capacityScmh ? round2((existingLoadScmh / capacity.capacityScmh) * 100) : 0,
+  };
+}
+
+/* Projected DRS load/capacity after adding a prospective new customer's draw on top of the existing base */
+export function buildDrsCapacityProjection(drsId, additionalLoadScmd, additionalLoadScmh) {
+  const baseline = getDrsLoadSummary(drsId);
+  const newLoadScmd = Math.max(0, additionalLoadScmd || 0);
+  const newLoadScmh = Math.max(0, additionalLoadScmh || 0);
+  const projectedLoadScmd = round2(baseline.existingLoadScmd + newLoadScmd);
+  const projectedLoadScmh = round2(baseline.existingLoadScmh + newLoadScmh);
+
+  return {
+    ...baseline,
+    newLoadScmd,
+    newLoadScmh,
+    projectedLoadScmd,
+    projectedLoadScmh,
+    remainingAfterScmd: round2(baseline.capacityScmd - projectedLoadScmd),
+    remainingAfterScmh: round2(baseline.capacityScmh - projectedLoadScmh),
+    projectedUtilizationScmdPercent: baseline.capacityScmd ? round2((projectedLoadScmd / baseline.capacityScmd) * 100) : 0,
+    projectedUtilizationScmhPercent: baseline.capacityScmh ? round2((projectedLoadScmh / baseline.capacityScmh) * 100) : 0,
+    withinCapacity: projectedLoadScmd <= baseline.capacityScmd && projectedLoadScmh <= baseline.capacityScmh,
+  };
+}
+
+/* Actual terminal pressure for every existing customer, derived from the real chainage of their
+   valve-chamber tap on the installed MDPE pipe - never a static/manual figure. Accepts scenario
+   overrides (source pressure, demand multiplier) so a surge/regulator-drift case can be simulated. */
+export function getCustomerPressureStatuses({ drsPressureBar, demandMultiplier = 1, material = 'PE100', roughness = 0.007, gasTemperature = 25, elevationRiseM = 0 } = {}) {
+  return CUSTOMERS.map((customer) => {
+    const segment = SEGMENTS.find((item) => item.chambers.some((chamber) => chamber.id === customer.valveChamberId));
+    const chamber = segment?.chambers.find((item) => item.id === customer.valveChamberId);
+    const distanceKm = chamber ? chamber.chainageKm : 0;
+    const flowScmh = customer.peakFlowScmh * demandMultiplier;
+    const sourcePressureBar = drsPressureBar ?? NODES[customer.sourceDrsId]?.pressureBar ?? 4;
+    const dropBar = pressureDropBar({
+      distanceKm,
+      diameterMm: segment?.pipeSpecMm || recommendDiameterMm(distanceKm, flowScmh),
+      flowScmh,
+      material,
+      roughness,
+      gasTemperature,
+      elevationRiseM,
+    });
+    const actualPressureBar = round2(sourcePressureBar - dropBar);
+
+    return {
+      ...customer,
+      segmentId: segment?.id,
+      distanceKm: round2(distanceKm),
+      pipeSpecMm: segment?.pipeSpecMm,
+      pressureDropBar: dropBar,
+      actualPressureBar,
+      meetsContractRequirement: actualPressureBar >= customer.requiredPressureBar,
+      belowAlertThreshold: actualPressureBar < PRESSURE_ALERT_THRESHOLD_BAR,
+      status: hydraulicStatus(actualPressureBar, customer.requiredPressureBar),
+    };
+  });
+}
+

@@ -251,7 +251,7 @@ function CustomerDetailView({ customer, masterGcv, effectiveGcvDate, onBack, onD
 
       {activeTab === 'reports' && (isIndustrialAccount ? <ReportsHub onDownload={reportDownload} onShowToast={onShowToast} audience="customer" /> : <PlaceholderTab title="Reports" customer={customer} description="Placeholder reporting data is shown for demo customer profiles. Select Wheels India to see the live industrial reports experience." />)}
 
-      {activeTab === 'persona' && (isIndustrialAccount ? <PersonaDashboard /> : <PlaceholderTab title="Persona Dashboard" customer={customer} description="Placeholder persona data is shown for demo customer profiles. Select Wheels India to see the live industrial dashboards experience." />)}
+      {activeTab === 'persona' && (isIndustrialAccount ? <PersonaDashboard audience="corporate" /> : <PlaceholderTab title="Persona Dashboard" customer={customer} description="Placeholder persona data is shown for demo customer profiles. Select Wheels India to see the live industrial dashboards experience." />)}
 
       {lettersOpen && <SignedLettersPanel onClose={() => setLettersOpen(false)} onShowToast={onShowToast} />}
     </div>

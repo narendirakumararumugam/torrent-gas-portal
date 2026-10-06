@@ -17,7 +17,18 @@ import {
 export const customerCategories = ['Industrial Customer', 'Commercial Customer'];
 export const corporateDepartments = ['Marketing', 'Projects', 'O&M', 'Material Management'];
 
-export const customerNav = [
+export const industrialCustomerNav = [
+  { id: 'connection', label: 'Connection Status', icon: LayoutDashboard, path: '/customer/connection' },
+  { id: 'persona-dashboard', label: 'Dashboard', icon: Users, path: '/customer/persona-dashboard' },
+  { id: 'tariff', label: 'Tariff Information', icon: Sparkles, path: '/customer/tariff' },
+  { id: 'billing', label: 'Bills and Payments', icon: Receipt, path: '/customer/billing' },
+  { id: 'reports', label: 'Analytics', icon: CloudDownload, path: '/customer/reports' },
+  { id: 'contracts', label: 'View Contracts', icon: FileText, path: '/customer/contracts' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, path: '/customer/notifications' },
+  { id: 'support', label: 'Register Complaint / Help', icon: HelpCircle, path: '/customer/support' },
+];
+
+export const commercialCustomerNav = [
   { id: 'connection', label: 'Connection Status', icon: LayoutDashboard, path: '/customer/connection' },
   { id: 'contracts', label: 'View Contracts', icon: FileText, path: '/customer/contracts' },
   { id: 'billing', label: 'Bills & Payments', icon: Receipt, path: '/customer/billing' },

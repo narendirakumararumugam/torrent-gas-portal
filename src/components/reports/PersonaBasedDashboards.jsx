@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -7,10 +7,8 @@ import {
   CircleDollarSign,
   Factory,
   Gauge,
-  Info,
   LineChart,
   ShieldCheck,
-  Sparkles,
   TrendingDown,
   TrendingUp,
   Wallet,
@@ -22,6 +20,8 @@ import ReportChart from './ReportChart';
 import { contractProfile } from '../../data/contractProfile';
 import { BILLING_REFERENCE_DATE, availablePaymentSecurity, billingCycles, currentInvoiceBreakdown, lastClearedPayment } from '../../data/billsPayments';
 import { dailyConsumption, takeOrPayQuota } from '../../data/mgoFlowAnalysis';
+import { complaintTickets } from '../../data/complaints';
+import { LATE_PAYMENT_INTEREST_RATE, getCycleLedger } from '../../utils/billingEngine';
 
 function round1(value) {
   return Math.round(value * 10) / 10;
@@ -79,18 +79,16 @@ const excessShare = invoiceTotal ? round1((currentExcessRow.amount / invoiceTota
 
 const operationalTotal = sum(dailyConsumption, (day) => day.mmbtu);
 const operationalAverage = dailyConsumption.length ? round2(operationalTotal / dailyConsumption.length) : 0;
+const operationalIntensity = contractDcq ? round2(operationalAverage / contractDcq) : 0;
 const operationalPeak = dailyConsumption.reduce((peak, day) => (day.mmbtu > peak.mmbtu ? day : peak), dailyConsumption[0]);
 const operationalLowDrawDays = dailyConsumption.filter((day) => day.mmbtu < 100).length;
 const operationalBaseLoadDays = dailyConsumption.filter((day) => day.mmbtu >= 100 && day.mmbtu <= contractDcq).length;
 const operationalHighLoadDays = dailyConsumption.filter((day) => day.mmbtu > contractDcq && day.mmbtu <= contractMdcq).length;
 const operationalExcessDays = dailyConsumption.filter((day) => day.mmbtu > contractMdcq).length;
-const operationalIntensity = contractDcq ? round2(operationalAverage / contractDcq) : 0;
-
 const billingSpendTotal = sum(billingCycles, (cycle) => cycle.invoiced);
 const billingAverage = billingCycles.length ? round2(billingSpendTotal / billingCycles.length) : 0;
 const latestCycle = billingCycles[billingCycles.length - 1];
 const priorCycle = billingCycles[billingCycles.length - 2];
-const latestCycleVariance = latestCycle.invoiced - billingAverage;
 
 const julSpend = billingCycles.slice(0, 2).reduce((total, cycle) => total + cycle.invoiced, 0);
 const augSpend = billingCycles.slice(2, 4).reduce((total, cycle) => total + cycle.invoiced, 0);
@@ -98,6 +96,12 @@ const fortnightTrend = pctChange(latestCycle.invoiced, priorCycle.invoiced);
 const monthTrend = pctChange(augSpend, julSpend);
 const outstandingLatest = latestCycle.invoiced - latestCycle.paid;
 const securityCoverPercent = latestCycle.invoiced ? round1((availablePaymentSecurity / latestCycle.invoiced) * 100) : 0;
+
+/* Corporate-only: internal ledger/risk data, never surfaced to the customer-facing dashboard */
+const billingLedger = getCycleLedger(billingCycles, BILLING_REFERENCE_DATE);
+const totalAccruedLateInterest = sum(billingLedger, (cycle) => cycle.lateInterest);
+const openComplaintTickets = complaintTickets.filter((ticket) => ticket.status !== 'resolved');
+const securityDeficit = Math.max(0, outstandingLatest - availablePaymentSecurity);
 
 const invoiceStatus = latestCycle.paid >= latestCycle.invoiced
   ? 'paid'
@@ -115,31 +119,6 @@ const allowanceRemaining = takeOrPayQuota.annualQuotaDays - takeOrPayQuota.usedD
 const mgoCompliant = operationalAverage >= minimumObligation;
 const mgoShortfall = round2(Math.max(minimumObligation - operationalAverage, 0));
 
-const healthFactors = [
-  { label: 'Baseline score', delta: 100, detail: 'Starting executive health baseline.' },
-  {
-    label: 'Payment standing',
-    delta: latestCycle.paid === 0 ? -12 : 0,
-    detail: latestCycle.paid === 0 ? 'Latest invoice is fully unpaid.' : 'Latest invoice has at least a partial payment recorded.',
-  },
-  {
-    label: 'Excess slab exposure',
-    delta: excessShare > 5 ? -8 : 0,
-    detail: `Excess slab is ${excessShare}% of the current invoice${excessShare > 5 ? ' (above the 5% threshold)' : ' (within the 5% threshold)'}.`,
-  },
-  {
-    label: 'Security cover',
-    delta: securityCoverPercent < 30 ? -10 : 0,
-    detail: `Available security covers ${formatDecimal(securityCoverPercent, 1)}% of the latest bill${securityCoverPercent < 30 ? ' (below the 30% threshold)' : ''}.`,
-  },
-  {
-    label: 'Maintenance allowance',
-    delta: allowanceRemaining > 10 ? 4 : 0,
-    detail: `${allowanceRemaining} shutdown/maintenance days remain${allowanceRemaining > 10 ? ', reducing off-take risk' : ''}.`,
-  },
-];
-const healthScore = Math.max(0, Math.min(100, healthFactors.reduce((total, factor) => total + factor.delta, 0)));
-
 const operationLabels = dailyConsumption.map((day) => day.date.slice(5));
 const operationSeries = [
   { label: 'Daily consumption', data: dailyConsumption.map((day) => day.mmbtu) },
@@ -147,32 +126,28 @@ const operationSeries = [
 ];
 
 const financeLabels = billingCycles.map((cycle) => cycle.label);
-const financeSeries = [
-  { label: 'Actual spend', data: billingCycles.map((cycle) => cycle.invoiced) },
-  { label: 'Budget envelope', data: billingCycles.map(() => billingAverage), dashed: true },
-];
 
 const managementLabels = billingCycles.map((cycle) => cycle.label);
 const managementSeries = [{ label: 'Fortnight spend', data: billingCycles.map((cycle) => cycle.invoiced) }];
 
 const personaTabs = [
   {
+    key: 'management',
+    label: 'Management Overview',
+    icon: ShieldCheck,
+    description: 'Executive trends, contract health, and spend control.',
+  },
+  {
     key: 'operations',
-    label: 'Operations Analysis',
+    label: 'Operations parameter',
     icon: Factory,
     description: 'Daily consumption, fuel efficiency, and inventory mapping.',
   },
   {
     key: 'finance',
-    label: 'Finance Analysis',
+    label: 'Financials',
     icon: CircleDollarSign,
     description: 'Cost per unit, spend vs budget, and security exposure.',
-  },
-  {
-    key: 'management',
-    label: 'Management Overview',
-    icon: ShieldCheck,
-    description: 'Executive trends, contract health, and spend control.',
   },
 ];
 
@@ -194,86 +169,7 @@ function MetricCard({ icon: Icon, label, value, detail, tone = 'text-slate-900',
   );
 }
 
-/* Contract health MetricCard variant - clickable/hoverable, opens a breakdown popover of contributing score factors */
-function ContractHealthCard({ score, tone, factors }) {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const handleClick = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) setOpen(false);
-    };
-    const handleKey = (event) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <Card className="p-4">
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          onMouseEnter={() => setOpen(true)}
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          className="w-full text-left"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Contract health</p>
-              <p className={`mt-2 text-lg font-semibold ${tone}`}>{score}/100</p>
-            </div>
-            <ShieldCheck className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
-          </div>
-          <p className="mt-2 flex items-center gap-1 text-xs leading-5 text-slate-500">
-            Payment, security cover, and slab exposure rolled into one score.
-            <Info className="h-3 w-3 shrink-0 text-slate-400" aria-hidden="true" />
-          </p>
-        </button>
-      </Card>
-
-      {open && (
-        <div role="dialog" aria-label="Contract health breakdown" className="absolute left-0 top-full z-20 mt-2 w-80 max-w-[90vw] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Score breakdown</p>
-          <div className="mt-2 space-y-2">
-            {factors.map((factor) => (
-              <div key={factor.label} className="flex items-start justify-between gap-3 rounded-lg border border-slate-100 p-2.5">
-                <div>
-                  <p className="text-xs font-semibold text-slate-800">{factor.label}</p>
-                  <p className="mt-0.5 text-[11px] leading-4 text-slate-500">{factor.detail}</p>
-                </div>
-                <span className={`shrink-0 text-xs font-semibold ${factor.delta > 0 ? 'text-emerald-600' : factor.delta < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                  {factor.delta > 0 ? '+' : ''}{factor.delta}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-sm font-semibold text-slate-900">
-            <span>Total score</span>
-            <span>{score}/100</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function OperationsView() {
-  const inventoryMap = [
-    { label: 'Shutdown / maintenance', range: '< 100 MMBTU', count: operationalLowDrawDays, tone: 'bg-emerald-50 text-emerald-700' },
-    { label: 'Base load production', range: '100-300 MMBTU', count: operationalBaseLoadDays, tone: 'bg-sky-50 text-sky-700' },
-    { label: 'High-load production', range: '300-500 MMBTU', count: operationalHighLoadDays, tone: 'bg-amber-50 text-amber-700' },
-    { label: 'Excess draw risk', range: '> 500 MMBTU', count: operationalExcessDays, tone: 'bg-rose-50 text-rose-700' },
-  ];
-
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -326,51 +222,18 @@ function OperationsView() {
         </div>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[1.18fr_0.82fr]">
-        <Card className="p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Daily consumption tracking</p>
-              <p className="text-xs text-slate-500">Draw pattern versus the 300 MMBTU DCQ target.</p>
-            </div>
-            <LineChart className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Daily consumption tracking</p>
+            <p className="text-xs text-slate-500">Draw pattern versus the 300 MMBTU DCQ target.</p>
           </div>
-          <div className="mt-4">
-            <ReportChart chartType="line" labels={operationLabels} series={operationSeries} height={270} />
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Fuel efficiency lens</p>
-              <p className="text-xs text-slate-500">Lower intensity means more output from each gas unit.</p>
-            </div>
-            <Sparkles className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
-          </div>
-          <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Normalized gas intensity</p>
-            <p className="mt-2 text-2xl font-semibold text-slate-900">{formatDecimal(operationalIntensity, 2)}x DCQ</p>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Average daily draw is {formatDecimal(operationalAverage, 1)} MMBTU against the {contractDcq} MMBTU contract baseline. The model should be pushed closer to the base-load band on stable production days.
-            </p>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            {inventoryMap.map((band) => (
-              <div key={band.label} className="rounded-xl border border-slate-200 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{band.label}</p>
-                    <p className="text-xs text-slate-500">{band.range}</p>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${band.tone}`}>{band.count} days</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+          <LineChart className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
+        </div>
+        <div className="mt-4">
+          <ReportChart chartType="line" labels={operationLabels} series={operationSeries} height={270} />
+        </div>
+      </Card>
 
       <Card className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -405,6 +268,27 @@ function OperationsView() {
 }
 
 function FinanceView() {
+  const [budgetBaseline, setBudgetBaseline] = useState(billingAverage);
+  const [budgetInput, setBudgetInput] = useState(String(Math.round(billingAverage)));
+
+  const variance = latestCycle.invoiced - budgetBaseline;
+  const financeSeries = [
+    { label: 'Actual spend', data: billingCycles.map((cycle) => cycle.invoiced) },
+    { label: 'Budget envelope', data: billingCycles.map(() => budgetBaseline), dashed: true },
+  ];
+
+  const handleBudgetChange = (event) => {
+    const raw = event.target.value;
+    setBudgetInput(raw);
+    const parsed = Number(raw);
+    if (raw.trim() !== '' && Number.isFinite(parsed) && parsed >= 0) setBudgetBaseline(parsed);
+  };
+
+  const resetBudget = () => {
+    setBudgetBaseline(billingAverage);
+    setBudgetInput(String(Math.round(billingAverage)));
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -415,18 +299,40 @@ function FinanceView() {
           badge={<Badge tone={invoiceStatus} />}
           detail={invoiceStatusDetail}
         />
-        <MetricCard
-          icon={CircleDollarSign}
-          label="Budget baseline"
-          value={formatCurrency(billingAverage)}
-          detail="Rolling average of the completed fortnights used as the planning envelope."
-        />
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Budget baseline</p>
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="text-lg font-semibold text-slate-900">₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={budgetInput}
+                  onChange={handleBudgetChange}
+                  aria-label="Custom budget baseline"
+                  className="w-full min-w-0 rounded-lg border border-slate-200 px-2 py-1 text-lg font-semibold text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+            <CircleDollarSign className="h-4.5 w-4.5 shrink-0 text-emerald-600" aria-hidden="true" />
+          </div>
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p className="text-xs leading-5 text-slate-500">Type a custom planning envelope - defaults to the rolling average of completed fortnights.</p>
+            {budgetBaseline !== billingAverage && (
+              <button type="button" onClick={resetBudget} className="shrink-0 text-xs font-semibold text-emerald-700 hover:underline">
+                Reset
+              </button>
+            )}
+          </div>
+        </Card>
         <MetricCard
           icon={TrendingUp}
           label="Variance to budget"
-          value={`${latestCycleVariance >= 0 ? '+' : '-'}${formatCurrency(Math.abs(latestCycleVariance))}`}
-          detail="The latest bill is above the historical planning average."
-          tone={latestCycleVariance >= 0 ? 'text-rose-600' : 'text-emerald-700'}
+          value={`${variance >= 0 ? '+' : '-'}${formatCurrency(Math.abs(variance))}`}
+          detail={`The latest bill is ${variance >= 0 ? 'above' : 'below'} the chosen planning baseline.`}
+          tone={variance >= 0 ? 'text-rose-600' : 'text-emerald-700'}
         />
         <MetricCard
           icon={ShieldCheck}
@@ -441,7 +347,7 @@ function FinanceView() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-sm font-semibold text-slate-900">Historical spend vs budget</p>
-              <p className="text-xs text-slate-500">Fortnight totals compared with the planning envelope.</p>
+              <p className="text-xs text-slate-500">Fortnight totals compared with the chosen planning envelope.</p>
             </div>
             <LineChart className="h-4.5 w-4.5 text-emerald-600" aria-hidden="true" />
           </div>
@@ -509,10 +415,10 @@ function FinanceView() {
   );
 }
 
-function ManagementView() {
+function ManagementView({ audience }) {
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           icon={Factory}
           label="Total gas consumed"
@@ -531,11 +437,6 @@ function ManagementView() {
           value={`${fortnightTrend >= 0 ? '+' : ''}${formatDecimal(fortnightTrend, 1)}%`}
           detail="Latest fortnight versus the previous fortnight."
           tone={fortnightTrend >= 0 ? 'text-rose-600' : 'text-emerald-700'}
-        />
-        <ContractHealthCard
-          score={healthScore}
-          tone={healthScore >= 80 ? 'text-emerald-700' : healthScore >= 65 ? 'text-amber-700' : 'text-rose-600'}
-          factors={healthFactors}
         />
       </div>
 
@@ -611,19 +512,91 @@ function ManagementView() {
           </div>
         </div>
       </Card>
+
+      {audience === 'corporate' && <CorporateInsightsPanel />}
     </div>
   );
 }
 
-function PersonaBasedDashboards() {
-  const [activePersona, setActivePersona] = useState('operations');
+/* Internal-only account view: full ledger, late-interest accrual, and open service risk - not shown to the customer */
+function CorporateInsightsPanel() {
+  return (
+    <Card className="border-indigo-200 bg-indigo-50/40 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500">Corporate Only</p>
+          <p className="text-sm font-semibold text-slate-900">Internal account insights</p>
+          <p className="text-xs text-slate-500">Visible to corporate staff only - not shown on the customer's own dashboard.</p>
+        </div>
+        <ShieldCheck className="h-4.5 w-4.5 shrink-0 text-indigo-600" aria-hidden="true" />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-indigo-100 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Accrued late interest</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{formatCurrency(totalAccruedLateInterest)}</p>
+          <p className="text-xs text-slate-500">Across all tracked cycles at {LATE_PAYMENT_INTEREST_RATE}% p.a.</p>
+        </div>
+        <div className="rounded-xl border border-indigo-100 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Open service risk</p>
+          <p className="mt-1 text-lg font-semibold text-slate-900">{openComplaintTickets.length} ticket{openComplaintTickets.length === 1 ? '' : 's'}</p>
+          <p className="text-xs text-slate-500">Unresolved complaints that may affect account health.</p>
+        </div>
+        <div className="rounded-xl border border-indigo-100 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Security deficit</p>
+          <p className={`mt-1 text-lg font-semibold ${securityDeficit > 0 ? 'text-rose-600' : 'text-slate-900'}`}>{securityDeficit > 0 ? formatCurrency(securityDeficit) : 'None'}</p>
+          <p className="text-xs text-slate-500">Outstanding exposure beyond the available payment security.</p>
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-indigo-100">
+        <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.9fr] bg-indigo-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-600">
+          <span>Cycle</span>
+          <span>Invoiced</span>
+          <span>Paid</span>
+          <span>Outstanding</span>
+          <span>Delay (d)</span>
+          <span>Late interest</span>
+        </div>
+        <div className="divide-y divide-indigo-100 bg-white">
+          {billingLedger.map((cycle) => (
+            <div key={cycle.id} className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.9fr] px-4 py-2.5 text-xs text-slate-700">
+              <span className="font-medium text-slate-900">{cycle.label}</span>
+              <span>{formatCurrency(cycle.invoiced)}</span>
+              <span>{formatCurrency(cycle.paid)}</span>
+              <span>{formatCurrency(cycle.outstanding)}</span>
+              <span>{cycle.extraDelayDays}</span>
+              <span>{formatCurrency(cycle.lateInterest)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {openComplaintTickets.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Service risk log</p>
+          {openComplaintTickets.map((ticket) => (
+            <div key={ticket.id} className="rounded-lg border border-indigo-100 bg-white p-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-slate-900">{ticket.id} - {ticket.category}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${ticket.priority === 'high' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700'}`}>{ticket.priority}</span>
+              </div>
+              <p className="mt-1 text-slate-500">Raised {ticket.date} - status {ticket.status.replace('-', ' ')} - SLA {ticket.sla}.</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function PersonaBasedDashboards({ audience = 'customer' }) {
+  const [activePersona, setActivePersona] = useState('management');
 
   return (
     <div className="space-y-4">
       <SectionHeading
-        eyebrow="Executive Intelligence"
-        title="Persona-Based Dashboards"
-        description="Role-specific views for industrial gas operations, finance, and management. Use the AI Contract Assistant button (bottom-right) for real-time guidance."
+        title="Dashboard"
       />
 
       <Card className="overflow-hidden">
@@ -648,7 +621,7 @@ function PersonaBasedDashboards() {
         <div className="px-4 py-5 sm:px-5">
           {activePersona === 'operations' && <OperationsView />}
           {activePersona === 'finance' && <FinanceView />}
-          {activePersona === 'management' && <ManagementView />}
+          {activePersona === 'management' && <ManagementView audience={audience} />}
         </div>
       </Card>
     </div>

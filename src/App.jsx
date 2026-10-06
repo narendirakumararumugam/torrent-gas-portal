@@ -18,6 +18,7 @@ import NotificationsCenter from './components/NotificationsCenter';
 import CommercialNotificationsCenter from './components/CommercialNotificationsCenter';
 import ServiceRequests from './components/ServiceRequests';
 import SupportCenter from './components/SupportCenter';
+import IndustrialHelpHub from './components/IndustrialHelpHub';
 import CorporateWorkspace from './components/CorporateWorkspace';
 import ApprovalsPanel from './components/ApprovalsPanel';
 import ExistingCustomers from './components/ExistingCustomers';
@@ -25,7 +26,7 @@ import PipelineFeasibilityCheck from './components/PipelineFeasibilityCheck';
 import MarketingBillingExposure from './components/marketing/MarketingBillingExposure';
 import MarketingTariffRevision from './components/marketing/MarketingTariffRevision';
 import RegisteredComplaints from './components/marketing/RegisteredComplaints';
-import { customerNav, corporateNav, marketingNav } from './data/navigation';
+import { commercialCustomerNav, industrialCustomerNav, corporateNav, marketingNav } from './data/navigation';
 import { generateDownload } from './utils/download';
 
 const AUTH_STORAGE_KEY = 'png-portal-auth';
@@ -61,6 +62,10 @@ function normalizePath(pathname) {
 
 function buildDepartmentNav(department) {
   return department === 'Marketing' ? marketingNav : corporateNav;
+}
+
+function buildCustomerNav(category) {
+  return category === 'Industrial Customer' ? industrialCustomerNav : commercialCustomerNav;
 }
 
 function getDefaultDepartmentPath(department) {
@@ -102,7 +107,7 @@ function App() {
   useEffect(() => {
     if (!auth) return;
 
-    const allowedPaths = auth.personaType === 'customer' ? customerNav.map((item) => item.path) : buildDepartmentNav(auth.category).map((item) => item.path);
+    const allowedPaths = auth.personaType === 'customer' ? buildCustomerNav(auth.category).map((item) => item.path) : buildDepartmentNav(auth.category).map((item) => item.path);
     const defaultPath = auth.personaType === 'customer' ? getCustomerDefaultPath(auth.category) : getDefaultDepartmentPath(auth.category);
 
     if (!allowedPaths.includes(pathname) || pathname === LOGIN_PATH) {
@@ -154,7 +159,7 @@ function App() {
     };
   }, [auth]);
 
-  const navItems = auth?.personaType === 'customer' ? customerNav : auth ? buildDepartmentNav(auth.category) : [];
+  const navItems = auth?.personaType === 'customer' ? buildCustomerNav(auth.category) : auth ? buildDepartmentNav(auth.category) : [];
 
   const renderContent = () => {
     if (!auth) return null;
@@ -179,7 +184,7 @@ function App() {
         case '/customer/service-requests':
           return <ServiceRequests onSubmit={submitServiceRequest} />;
         case '/customer/support':
-          return <SupportCenter />;
+          return isCommercialCustomer ? <SupportCenter /> : <IndustrialHelpHub onSubmitComplaint={submitComplaint} onSubmitServiceRequest={submitServiceRequest} />;
         case '/customer/connection':
         default:
           return <ConnectionTracker />;
@@ -190,7 +195,7 @@ function App() {
       case '/corporate/existing-customers':
         return <ExistingCustomers onShowToast={showToast} />;
       case '/corporate/pipeline-feasibility':
-        return <PipelineFeasibilityCheck />;
+        return <PipelineFeasibilityCheck onShowToast={showToast} />;
       case '/corporate/bills-payments-exposure':
         return <MarketingBillingExposure onShowToast={showToast} />;
       case '/corporate/tariff-price-revision':
