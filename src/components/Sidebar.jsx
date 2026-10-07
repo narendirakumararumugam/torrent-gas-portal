@@ -1,5 +1,6 @@
 import React from 'react';
-import { Flame, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import BrandMark from './common/BrandMark';
 
 function Sidebar({ navItems, activePath, onNavigate, mobileOpen, onCloseMobile, collapsed, onToggleCollapsed }) {
   return (
@@ -19,12 +20,7 @@ function Sidebar({ navItems, activePath, onNavigate, mobileOpen, onCloseMobile, 
       >
         <div className="flex items-center justify-between gap-2 px-4 py-4">
           {!collapsed && (
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/20 text-emerald-400 ring-1 ring-emerald-600/40">
-                <Flame className="h-4.5 w-4.5" />
-              </div>
-              <span className="text-sm font-semibold text-white">PNG Portal</span>
-            </div>
+            <BrandMark showText compact={false} className="gap-2.5" textClassName="text-white" />
           )}
           <button
             type="button"

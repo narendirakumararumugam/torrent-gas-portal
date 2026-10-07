@@ -1027,19 +1027,6 @@ function PipelineFeasibilityCheck({ onShowToast }) {
                       className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-sky-600"
                     />
                   </label>
-                  <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Peak demand multiplier
-                    <input
-                      type="range"
-                      min="1"
-                      max="2"
-                      step="0.05"
-                      value={demandMultiplier}
-                      onChange={(event) => setDemandMultiplier(Number(event.target.value))}
-                      className="mt-3.5 w-full accent-sky-600"
-                    />
-                    <span className="mt-1 block text-sm font-semibold normal-case tracking-normal text-slate-800">{demandMultiplier.toFixed(2)}x peak flow</span>
-                  </label>
                 </div>
 
                 <label className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">

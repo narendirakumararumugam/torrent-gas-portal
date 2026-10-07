@@ -5,16 +5,8 @@ import CollapsibleSection from '../common/CollapsibleSection';
 import ReportChart from './ReportChart';
 import DrillDownTable from './DrillDownTable';
 
-const modeOptions = [
-  { value: 'historical', label: 'Replay last month' },
-  { value: 'peak_shift', label: 'Peak-shave the curve' },
-  { value: 'mgo_first', label: 'MGO-first balance' },
-];
-
 const modeHelperText = {
-  historical: 'Use the historical draw curve and apply the current month rates without smoothing.',
   peak_shift: 'Shift a share of peak load into lower-use days to reduce premium slab exposure.',
-  mgo_first: 'Pull the month toward the MGO band so more days stay near the lowest tariff tier.',
 };
 
 /* Display-only approximation (~9,350 kcal/SCM GCV); does not affect billing calculations, which stay in MMBTU */
@@ -57,7 +49,6 @@ function ProductionAnalysisPanel({ result, filters, onChangeFilters, chartRef })
   const forecast = production.forecast;
   const baseline = production.baseline;
   const savings = production.savings.amount;
-  const mode = filters.simulationMode || 'historical';
   const balanceStrength = filters.balanceStrength ?? 45;
   const unitLabel = unit === 'SCM' ? 'SCM' : 'MMBTU';
 
@@ -100,10 +91,6 @@ function ProductionAnalysisPanel({ result, filters, onChangeFilters, chartRef })
     rows: result.table.rows.map((row) => [row[0], toUnit(row[1], unit), toUnit(row[2], unit), row[3], row[4], row[5]]),
   };
 
-  const handleMode = (modeValue) => {
-    onChangeFilters({ ...filters, simulationMode: modeValue });
-  };
-
   const handleBalance = (event) => {
     onChangeFilters({ ...filters, balanceStrength: Number(event.target.value) });
   };
@@ -123,7 +110,7 @@ function ProductionAnalysisPanel({ result, filters, onChangeFilters, chartRef })
             </div>
             <h3 className="mt-3 text-xl font-semibold text-slate-900">Production Analysis</h3>
             <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">
-              Replay last month against this month&apos;s slab pricing and see where reshaping the draw curve lowers the bill.
+              Review the current month peak-shaving scenario and see where reshaping the draw curve lowers the bill.
             </p>
           </div>
 
@@ -155,47 +142,32 @@ function ProductionAnalysisPanel({ result, filters, onChangeFilters, chartRef })
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scenario</span>
-          {modeOptions.map((option) => {
-            const active = mode === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => handleMode(option.value)}
-                aria-pressed={active}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-800">Scenario</p>
+          <p className="mt-1 text-sm font-semibold text-emerald-900">Peak-shave the curve</p>
+          <p className="mt-1 text-xs leading-5 text-emerald-800">{modeHelperText.peak_shift}</p>
         </div>
-        <p className="mt-2 text-xs leading-5 text-slate-500">{modeHelperText[mode]}</p>
 
-        {mode !== 'historical' && (
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-amber-900">Smoothing intensity - {balanceStrength}%</p>
-              <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">Adjust live</span>
-            </div>
-            <input
-              type="range"
-              min="10"
-              max="90"
-              step="1"
-              value={balanceStrength}
-              onChange={handleBalance}
-              className="mt-3 w-full accent-emerald-600"
-              aria-label="Balance strength"
-            />
-            <div className="mt-1.5 flex items-center justify-between text-[11px] font-medium text-amber-800">
-              <span>Light smoothing</span>
-              <span>Strong peak-shaving</span>
-            </div>
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold text-amber-900">Smoothing intensity - {balanceStrength}%</p>
+            <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">Adjust live</span>
           </div>
-        )}
+          <input
+            type="range"
+            min="10"
+            max="90"
+            step="1"
+            value={balanceStrength}
+            onChange={handleBalance}
+            className="mt-3 w-full accent-emerald-600"
+            aria-label="Balance strength"
+          />
+          <div className="mt-1.5 flex items-center justify-between text-[11px] font-medium text-amber-800">
+            <span>Light smoothing</span>
+            <span>Strong peak-shaving</span>
+          </div>
+        </div>
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -227,65 +199,7 @@ function ProductionAnalysisPanel({ result, filters, onChangeFilters, chartRef })
         </div>
       </Card>
 
-      <div className="space-y-3">
-        <CollapsibleSection title="Top cost days" subtitle="Where the bill moves most versus the historical baseline" icon={Crown}>
-          <div className="space-y-3">
-            {topRows.map((row) => (
-              <div key={row.date} className="rounded-2xl border border-slate-200 p-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">{row.date}</p>
-                    <p className="text-xs text-slate-500">{row.tier} · {toUnit(row.total, unit).toLocaleString('en-IN')} {unitLabel}</p>
-                  </div>
-                  <p className={`text-sm font-semibold ${row.delta >= 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    {row.delta >= 0 ? '+' : '-'}₹{Math.abs(row.delta).toLocaleString('en-IN')}
-                  </p>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                  <span>Historical cost ₹{row.baselineCost.toLocaleString('en-IN')}</span>
-                  <span>Forecast cost ₹{row.cost.total.toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Contract lens & slab rates" subtitle="MGO target, excess trigger, and current tariff" icon={Gauge}>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">MGO target</p>
-              <p className="mt-1 text-sm font-semibold text-slate-800">90% of DCQ</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Excess trigger</p>
-              <p className="mt-1 text-sm font-semibold text-slate-800">Beyond {toUnit(production.contract.mdcq, unit).toLocaleString('en-IN')} {unitLabel}/day</p>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">Current slab rates</p>
-              <p className="mt-1 text-xs leading-5 text-slate-600">
-                MGO {formatCurrency(production.rates.mgo)} / MMBTU, Non-MGO {formatCurrency(production.rates.nonMgo)} / MMBTU, Excess {formatCurrency(production.rates.excess)} / MMBTU.
-              </p>
-            </div>
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="What to do next" subtitle="Actionable recommendations from the model" icon={Sparkles}>
-          <div className="space-y-3">
-            {production.recommendations.map((item) => (
-              <div key={item} className="flex gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                  <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                </div>
-                <p className="text-sm leading-6 text-slate-700">{item}</p>
-              </div>
-            ))}
-          </div>
-        </CollapsibleSection>
-
-        <CollapsibleSection title="Detailed forecast data table" subtitle="Full day-by-day drill-down with CSV export" icon={Rows3}>
-          <DrillDownTable table={detailTable} filename="production_analysis_data.csv" />
-        </CollapsibleSection>
-      </div>
+      
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { contractProfile } from './contractProfile';
-import { billingCycles, currentInvoiceBreakdown } from './billsPayments';
+import { billingCycles, currentInvoiceBreakdown, currentUnbilledCycle } from './billsPayments';
 import { dailyConsumption } from './mgoFlowAnalysis';
 
 const MASTER_GCV_DEFAULT = 9300;
@@ -14,6 +14,17 @@ const wheelsAverageScm = Math.round((wheelsAverageMmbtu * 252000) / MASTER_GCV_D
 const wheelsPeakMmbtu = Math.max(...dailyConsumption.map((day) => day.mmbtu));
 const wheelsPeakScm = Math.round((wheelsPeakMmbtu * 252000) / MASTER_GCV_DEFAULT);
 const latestBillingCycle = billingCycles[billingCycles.length - 1];
+const wheelsCurrentUnbilledRupees = 3138552;
+const wheelsOverdueRupees = 242000;
+const wheelsCurrentUnbilledValue = Number((wheelsCurrentUnbilledRupees / 100000).toFixed(2));
+const wheelsOverdueAmount = Number((wheelsOverdueRupees / 100000).toFixed(2));
+
+function getCurrentUnbilledValue(customer) {
+  if (customer.id === 'CUST-WIL01') return wheelsCurrentUnbilledValue;
+
+  const estimatedValue = ((customer.currentConsumption ?? 0) * (customer.tariff ?? 0) * 10) / 100000;
+  return Number(estimatedValue.toFixed(2));
+}
 
 const wheelsIndiaCustomer = {
   id: 'CUST-WIL01',
@@ -38,7 +49,9 @@ const wheelsIndiaCustomer = {
   peakDaily: wheelsPeakScm,
   tariff: parseNumber(currentInvoiceBreakdown.rows[0].rate),
   monthlyValue: latestBillingCycle.invoiced,
-  outstanding: Number(((latestBillingCycle.invoiced - latestBillingCycle.paid) / 100000).toFixed(2)),
+  currentUnbilledValue: 3138552,
+  overdueAmount: 242000,
+  outstanding: 3138552 + 242000,
   paymentStatus: 'Pending verification',
   contact: 'Operations Team',
   designation: 'Commercial Manager',
@@ -71,6 +84,9 @@ const seeds = [
 export const CUSTOMERS = seeds.map((seed, index) => {
   const [name, id, industry, location, contractStatus, dcq, mdcq, expiry, utilization] = seed;
   const daily = Math.round((dcq * utilization) / 100);
+  const tariff = 41.75 + index * 0.35;
+  const currentUnbilledValue = getCurrentUnbilledValue({ id, currentConsumption: daily, tariff });
+  const overdueAmount = index % 4 === 0 ? 4.8 + index : 0;
 
   return {
     id,
@@ -93,9 +109,11 @@ export const CUSTOMERS = seeds.map((seed, index) => {
     monthlyConsumption: daily * 30,
     averageDaily: daily - 3,
     peakDaily: Math.min(mdcq, Math.round(daily * 1.16)),
-    tariff: 41.75 + index * 0.35,
-    monthlyValue: Math.round((daily * 30 * (41.75 + index * 0.35)) / 1000),
-    outstanding: index % 4 === 0 ? 4.8 + index : 0,
+    tariff,
+    monthlyValue: Math.round((daily * 30 * tariff) / 1000),
+    currentUnbilledValue,
+    overdueAmount,
+    outstanding: Number((overdueAmount + currentUnbilledValue).toFixed(2)),
     paymentStatus: index % 4 === 0 ? 'Due in 8 days' : 'Paid on time',
     contact: ['Meera Shah', 'Karan Patel', 'Anita Desai', 'Vikram Rao'][index % 4],
     designation: ['Plant Head', 'Procurement Manager', 'Operations Director', 'Commercial Manager'][index % 4],

@@ -2,14 +2,22 @@ import React from 'react';
 import Card from '../common/Card';
 import { formatINR, getInvoiceTotals } from '../../utils/billingFormat';
 
-function InvoiceBreakdownTable({ invoiceBreakdown, cycleLabel }) {
+function InvoiceBreakdownTable({
+  invoiceBreakdown,
+  cycleLabel,
+  title = 'Current Invoice Breakdown',
+  subtitle = 'Billing cycle',
+  subtotalLabel = 'Subtotal',
+  vatLabel = 'Statutory Levies & VAT (5%)',
+  totalLabel = 'Total Invoice Payable',
+}) {
   const { subtotal, vat, total } = getInvoiceTotals(invoiceBreakdown);
 
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-slate-200 px-5 py-4">
-        <p className="text-sm font-semibold text-blue-950">Current Invoice Breakdown</p>
-        <p className="text-xs text-slate-500">Billing cycle {cycleLabel}</p>
+        <p className="text-sm font-semibold text-blue-950">{title}</p>
+        <p className="text-xs text-slate-500">{subtitle} {cycleLabel}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -31,15 +39,15 @@ function InvoiceBreakdownTable({ invoiceBreakdown, cycleLabel }) {
               </tr>
             ))}
             <tr>
-              <td className="px-5 py-3 font-medium text-slate-600" colSpan={3}>Subtotal</td>
+              <td className="px-5 py-3 font-medium text-slate-600" colSpan={3}>{subtotalLabel}</td>
               <td className="px-5 py-3 text-right text-slate-700">{formatINR(subtotal)}</td>
             </tr>
             <tr>
-              <td className="px-5 py-3 font-medium text-slate-800" colSpan={3}>Statutory Levies &amp; VAT (5%)</td>
+              <td className="px-5 py-3 font-medium text-slate-800" colSpan={3}>{vatLabel}</td>
               <td className="px-5 py-3 text-right text-slate-800">{formatINR(vat)}</td>
             </tr>
             <tr className="bg-blue-50/60">
-              <td className="px-5 py-3 font-semibold text-blue-950" colSpan={3}>Total Invoice Payable</td>
+              <td className="px-5 py-3 font-semibold text-blue-950" colSpan={3}>{totalLabel}</td>
               <td className="px-5 py-3 text-right text-base font-bold text-blue-950">{formatINR(total)}</td>
             </tr>
           </tbody>

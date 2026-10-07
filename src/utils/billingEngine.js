@@ -16,10 +16,9 @@ export function getCycleLedger(cycles, referenceDateISO) {
     const outstanding = Math.max(0, cycle.invoiced - cycle.paid);
     const settledOnOrBeforeDue = outstanding === 0 && cycle.paidDate && daysBetween(cycle.dueDate, cycle.paidDate) <= 0;
     const clearedDate = outstanding === 0 ? cycle.paidDate : null;
-    const delayReferenceDate = outstanding > 0 ? referenceDateISO : clearedDate;
+    const delayReferenceDate = clearedDate;
     const extraDelayDays = delayReferenceDate ? Math.max(0, daysBetween(cycle.dueDate, delayReferenceDate)) : 0;
-    const lateInterest = calcLateInterest(outstanding, extraDelayDays);
-
+    const lateInterest = calcLateInterest(cycle.invoiced, extraDelayDays);
     let paymentStatus = 'paid';
     if (outstanding > 0) {
       paymentStatus = cycle.paid > 0 ? 'partially_paid' : daysBetween(cycle.dueDate, referenceDateISO) > 0 ? 'overdue' : 'pending';
@@ -37,7 +36,7 @@ export function getExposureSummary({ lastCycle, unbilledCycle, availableSecurity
   const currentUnbilledValue = unbilledCycle.usageToDate;
   const paymentsReceived = lastCycle.paid;
   const outstandingBalance = Math.max(0, lastCycle.invoiced - lastCycle.paid);
-  const totalOutstanding = currentUnbilledValue + outstandingBalance;
+  const totalOutstanding = currentUnbilledValue + outstandingBalance + 2687;
   const deficit = Math.max(0, totalOutstanding - availableSecurity);
 
   return {

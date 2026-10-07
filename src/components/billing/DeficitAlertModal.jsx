@@ -39,7 +39,7 @@ function DeficitAlertModal({ exposure, onClose }) {
           onClick={onClose}
           className="mt-5 w-full rounded-lg bg-blue-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800"
         >
-          Acknowledge
+          Done
         </button>
       </Card>
     </div>

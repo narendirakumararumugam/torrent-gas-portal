@@ -1,10 +1,39 @@
-export const marketingBillingProfiles = [
+import { CUSTOMERS, getCustomer } from './existing-customers.data.js';
+import { availablePaymentSecurity, billingCycles, lastClearedPayment, pendingVerificationPayment } from './billsPayments';
+
+const wheelsIndiaCustomer = getCustomer('CUST-WIL01');
+const latestBillingCycle = billingCycles[billingCycles.length - 1];
+const wheelsIndiaCurrentBill = Number((latestBillingCycle.invoiced / 100000).toFixed(2));
+const wheelsIndiaOverdueAmount = Number(((latestBillingCycle.invoiced - latestBillingCycle.paid) / 100000).toFixed(2));
+const wheelsIndiaSecurity = Number((availablePaymentSecurity / 100000).toFixed(2));
+
+function buildWheelsIndiaBillingProfile() {
+  return {
+    customerName: wheelsIndiaCustomer.name,
+    customerId: wheelsIndiaCustomer.id,
+    contractNumber: wheelsIndiaCustomer.contractNumber,
+    location: wheelsIndiaCustomer.location,
+    industry: wheelsIndiaCustomer.industry,
+    segment: 'Strategic',
+    currentBill: wheelsIndiaCurrentBill,
+    outstanding: wheelsIndiaCustomer.outstanding,
+    overdueAmount: wheelsIndiaOverdueAmount,
+    notYetDueAmount: wheelsIndiaCustomer.currentUnbilledValue ?? 0,
+    overdueInvoicesCount: 1,
+    oldestOutstandingDays: 0,
+    paymentSecurityDetails: [{ label: 'Available Security', amount: wheelsIndiaSecurity }],
+    currentBillingCycle: latestBillingCycle.monthLabel.trim(),
+    accountOwner: wheelsIndiaCustomer.accountManager,
+    paymentMode: lastClearedPayment.method,
+    preferredChannel: 'Email',
+    lastPayment: '06 Oct 2026',
+    nextAction: `Verify ${pendingVerificationPayment.reference} against ${latestBillingCycle.id}`,
+    riskNote: 'Live industrial portal billing data synced from the Wheels India account.',
+  };
+}
+
+const BILLING_PROFILE_SEEDS = [
   {
-    customerName: 'Apex Foods Pvt Ltd',
-    customerId: 'MKT-1001',
-    contractNumber: 'CN-2401-101',
-    location: 'Ambattur',
-    industry: 'Food Processing',
     segment: 'Strategic',
     currentBill: 118,
     outstanding: 94,
@@ -25,11 +54,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Strong consumption, delayed settlement, but fully covered by security.',
   },
   {
-    customerName: 'Metro Textiles',
-    customerId: 'MKT-1002',
-    contractNumber: 'CN-2402-212',
-    location: 'Guindy',
-    industry: 'Textile',
     segment: 'Growth',
     currentBill: 142,
     outstanding: 167,
@@ -50,11 +74,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Exposure exceeds available security and requires immediate follow-up.',
   },
   {
-    customerName: 'Nova Ceramics',
-    customerId: 'MKT-1003',
-    contractNumber: 'CN-2402-337',
-    location: 'Sriperumbudur',
-    industry: 'Ceramics',
     segment: 'Premium',
     currentBill: 166,
     outstanding: 91,
@@ -75,11 +94,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Healthy balance sheet and strong response history.',
   },
   {
-    customerName: 'Saffron Pharma',
-    customerId: 'MKT-1004',
-    contractNumber: 'CN-2404-418',
-    location: 'Ayanambakkam',
-    industry: 'Pharma',
     segment: 'Retention',
     currentBill: 129,
     outstanding: 132,
@@ -100,11 +114,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Near limit, with overdue invoices concentrated in the last 6 weeks.',
   },
   {
-    customerName: 'Harbor Chemicals',
-    customerId: 'MKT-1005',
-    contractNumber: 'CN-2405-551',
-    location: 'Madhavaram',
-    industry: 'Chemicals',
     segment: 'Strategic',
     currentBill: 177,
     outstanding: 88,
@@ -125,11 +134,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Stable account with healthy security headroom.',
   },
   {
-    customerName: 'Vertex Manufacturing',
-    customerId: 'MKT-1006',
-    contractNumber: 'CN-2406-678',
-    location: 'Oragadam',
-    industry: 'Manufacturing',
     segment: 'Growth',
     currentBill: 104,
     outstanding: 101,
@@ -150,11 +154,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Security remains adequate, but collection cadence is slipping.',
   },
   {
-    customerName: 'Bluewave Glass',
-    customerId: 'MKT-1007',
-    contractNumber: 'CN-2407-781',
-    location: 'Poonamallee',
-    industry: 'Glass',
     segment: 'Watchlist',
     currentBill: 133,
     outstanding: 124,
@@ -175,11 +174,6 @@ export const marketingBillingProfiles = [
     riskNote: 'Watchlist account with ageing spikes and limited payment security.',
   },
   {
-    customerName: 'Zenith Automotive',
-    customerId: 'MKT-1008',
-    contractNumber: 'CN-2409-944',
-    location: 'Hosur Road',
-    industry: 'Automotive',
     segment: 'Premium',
     currentBill: 188,
     outstanding: 72,
@@ -199,4 +193,116 @@ export const marketingBillingProfiles = [
     nextAction: 'Executive update and cross-sell review',
     riskNote: 'High-value premium customer with strong engagement and low ageing.',
   },
+  {
+    segment: 'Retention',
+    currentBill: 96,
+    outstanding: 64,
+    overdueAmount: 28,
+    notYetDueAmount: 36,
+    overdueInvoicesCount: 1,
+    oldestOutstandingDays: 22,
+    paymentSecurityDetails: [
+      { label: 'Bank Guarantee', amount: 45 },
+      { label: 'Security Deposit', amount: 55 },
+    ],
+    currentBillingCycle: 'Sep 2026',
+    accountOwner: 'A. Joseph',
+    paymentMode: 'NEFT',
+    preferredChannel: 'Email',
+    lastPayment: '17 Sep 2026',
+    nextAction: 'Invoice reconciliation',
+    riskNote: 'Moderate exposure with manageable ageing and active coverage.',
+  },
+  {
+    segment: 'Strategic',
+    currentBill: 151,
+    outstanding: 109,
+    overdueAmount: 72,
+    notYetDueAmount: 37,
+    overdueInvoicesCount: 3,
+    oldestOutstandingDays: 39,
+    paymentSecurityDetails: [
+      { label: 'Bank Guarantee', amount: 85 },
+      { label: 'Security Deposit', amount: 55 },
+    ],
+    currentBillingCycle: 'Sep 2026',
+    accountOwner: 'T. Natarajan',
+    paymentMode: 'RTGS',
+    preferredChannel: 'WhatsApp',
+    lastPayment: '09 Sep 2026',
+    nextAction: 'Strategic payment follow-up',
+    riskNote: 'Healthy account with some follow-up required on the latest cycle.',
+  },
+  {
+    segment: 'Growth',
+    currentBill: 124,
+    outstanding: 98,
+    overdueAmount: 56,
+    notYetDueAmount: 42,
+    overdueInvoicesCount: 2,
+    oldestOutstandingDays: 31,
+    paymentSecurityDetails: [
+      { label: 'Bank Guarantee', amount: 70 },
+      { label: 'Security Deposit', amount: 50 },
+    ],
+    currentBillingCycle: 'Sep 2026',
+    accountOwner: 'H. Lakshmi',
+    paymentMode: 'Cheque',
+    preferredChannel: 'Phone',
+    lastPayment: '13 Sep 2026',
+    nextAction: 'Payment promise tracking',
+    riskNote: 'Balanced exposure with one recent aging spike.',
+  },
+  {
+    segment: 'Watchlist',
+    currentBill: 163,
+    outstanding: 141,
+    overdueAmount: 101,
+    notYetDueAmount: 40,
+    overdueInvoicesCount: 4,
+    oldestOutstandingDays: 65,
+    paymentSecurityDetails: [
+      { label: 'Bank Guarantee', amount: 80 },
+      { label: 'Security Deposit', amount: 45 },
+    ],
+    currentBillingCycle: 'Sep 2026',
+    accountOwner: 'M. Kavitha',
+    paymentMode: 'Cheque',
+    preferredChannel: 'SMS',
+    lastPayment: '05 Sep 2026',
+    nextAction: 'Escalate recovery plan',
+    riskNote: 'High ageing and a shortfall against available security.',
+  },
 ];
+
+export const marketingBillingProfiles = CUSTOMERS.map((customer, index) => {
+  if (customer.id === wheelsIndiaCustomer.id) {
+    return buildWheelsIndiaBillingProfile();
+  }
+
+  const seed = BILLING_PROFILE_SEEDS[(index - 1) % BILLING_PROFILE_SEEDS.length];
+  const currentUnbilledValue = customer.currentUnbilledValue ?? 0;
+
+  return {
+    customerName: customer.name,
+    customerId: customer.id,
+    contractNumber: customer.contractNumber,
+    location: customer.location,
+    industry: customer.industry,
+    segment: seed.segment,
+    currentBill: seed.currentBill,
+    outstanding: customer.outstanding,
+    overdueAmount: seed.overdueAmount,
+    notYetDueAmount: currentUnbilledValue,
+    overdueInvoicesCount: seed.overdueInvoicesCount,
+    oldestOutstandingDays: seed.oldestOutstandingDays,
+    paymentSecurityDetails: seed.paymentSecurityDetails,
+    currentBillingCycle: seed.currentBillingCycle,
+    accountOwner: seed.accountOwner,
+    paymentMode: seed.paymentMode,
+    preferredChannel: seed.preferredChannel,
+    lastPayment: seed.lastPayment,
+    nextAction: seed.nextAction,
+    riskNote: seed.riskNote,
+  };
+});

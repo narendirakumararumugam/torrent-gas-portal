@@ -156,7 +156,7 @@ function CustomerDetailView({ customer, masterGcv, effectiveGcvDate, onBack, onD
 
   const reportDownload = (title, format) => {
     const extension = format.toLowerCase();
-    const content = format === 'CSV' ? `title\n${title}` : `Report: ${title}\nCNG Custom Self Service Portal`;
+    const content = format === 'CSV' ? `title\n${title}` : `Report: ${title}\nTorrent Gas Custom Self Service Portal`;
     generateDownload(`${title.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.${extension}`, content, format === 'CSV' ? 'text/csv' : 'application/pdf');
     if (onShowToast) onShowToast(`${format} export generated for ${title}`);
   };

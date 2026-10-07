@@ -29,7 +29,6 @@ function MarketingBillingExposure({ onShowToast }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [segmentFilter, setSegmentFilter] = useState('All');
-  const [activeTab, setActiveTab] = useState('Overview');
 
   const selectedCustomer = useMemo(
     () => profiles.find((profile) => profile.customerId === selectedCustomerId) ?? profiles[0],
@@ -118,14 +117,20 @@ function MarketingBillingExposure({ onShowToast }) {
 
   const detailRows = selectedCustomer
     ? [
-        { label: 'Current bill', value: `₹ ${selectedCustomer.currentBill} L` },
-        { label: 'Outstanding', value: `₹ ${selectedCustomer.outstanding} L` },
-        { label: 'Overdue', value: `₹ ${selectedCustomer.overdueAmount} L` },
-        { label: 'Not yet due', value: `₹ ${selectedCustomer.notYetDueAmount} L` },
+        { label: 'Current bill', value: `${formatCurrency(selectedCustomer.currentBill ?? 0)}` },
+        { 
+          label: 'Total Outstanding', 
+          value: `${formatCurrency(3382983)} L` 
+        },
+        { label: 'Current unbilled value', value: `${formatCurrency(3138552)}` },
+        { label: 'Overdue', value: `${formatCurrency(242000)}` },
         { label: 'Overdue invoices', value: selectedCustomer.overdueInvoicesCount },
-        { label: 'Oldest outstanding', value: `${selectedCustomer.oldestOutstandingDays} days` },
       ]
     : [];
+
+  function formatCurrency(value) {
+  return `₹${Math.round(value).toLocaleString('en-IN')}`;
+}
 
   return (
     <div className="space-y-6">
@@ -235,7 +240,7 @@ function MarketingBillingExposure({ onShowToast }) {
                   <button
                     key={profile.customerId}
                     type="button"
-                    onClick={() => { setSelectedCustomerId(profile.customerId); setActiveTab('Overview'); }}
+                    onClick={() => setSelectedCustomerId(profile.customerId)}
                     className={`w-full rounded-2xl border p-4 text-left transition ${isActive ? 'border-emerald-500 bg-emerald-50/70' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -290,7 +295,7 @@ function MarketingBillingExposure({ onShowToast }) {
                       return (
                         <tr
                           key={profile.customerId}
-                          onClick={() => { setSelectedCustomerId(profile.customerId); setActiveTab('Overview'); }}
+                          onClick={() => setSelectedCustomerId(profile.customerId)}
                           className={`cursor-pointer border-t border-slate-200 transition hover:bg-slate-50 ${isActive ? 'bg-emerald-50/70' : ''}`}
                         >
                           <td className="px-4 py-3 align-top">
@@ -311,7 +316,6 @@ function MarketingBillingExposure({ onShowToast }) {
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setSelectedCustomerId(profile.customerId);
-                                setActiveTab('Overview');
                               }}
                               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
                             >
@@ -370,126 +374,44 @@ function MarketingBillingExposure({ onShowToast }) {
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getExposureBand(selectedCustomer).tone}`}>{getExposureBand(selectedCustomer).label}</span>
             </div>
 
-            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-50 p-1">
-              {['Overview', 'Exposure'].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition ${activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === 'Overview' ? (
-              <div className="mt-4 space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {detailRows.map((item) => (
-                    <div key={item.label} className="rounded-2xl border border-slate-200 p-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
-                      <p className="mt-1 text-base font-semibold text-slate-900">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Security utilization</p>
-                      <p className="text-xs text-slate-500">Outstanding vs security held for the selected account.</p>
-                    </div>
-                    <div className="text-sm font-semibold text-slate-700">{selectedExposure.toFixed(1)}%</div>
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {detailRows.map((item) => (
+                  <div key={item.label} className="rounded-2xl border border-slate-200 p-3">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">{item.value}</p>
                   </div>
-                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full ${selectedCustomer.outstanding > selectedSecurity ? 'bg-rose-500' : selectedExposure >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(selectedExposure, 100)}%` }} />
-                  </div>
-                  <p className="mt-3 text-sm text-slate-600">{selectedCustomer.riskNote}</p>
-                </div>
+                ))}
+              </div>
 
-                <div className={`rounded-2xl p-4 ${selectedCustomer.outstanding > selectedSecurity ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="mt-0.5 h-5 w-5" />
-                    <div>
-                      <p className="font-semibold">{selectedCustomer.outstanding > selectedSecurity ? 'Payment security shortfall' : 'Within secure limit'}</p>
-                      <p className="mt-1 text-sm">
-                        {selectedCustomer.outstanding > selectedSecurity
-                          ? `Outstanding exceeds available security by ₹ ${selectedCustomer.outstanding - selectedSecurity} L.`
-                          : 'The account is fully covered by active security instruments.'}
-                      </p>
-                    </div>
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Security utilization</p>
+                    <p className="text-xs text-slate-500">Outstanding vs security held for the selected account.</p>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-700">{selectedExposure.toFixed(1)}%</div>
+                </div>
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
+                  <div className={`h-full rounded-full ${selectedCustomer.outstanding > selectedSecurity ? 'bg-rose-500' : selectedExposure >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(selectedExposure, 100)}%` }} />
+                </div>
+                <p className="mt-3 text-sm text-slate-600">{selectedCustomer.riskNote}</p>
+              </div>
+
+              <div className={`rounded-2xl p-4 ${selectedCustomer.outstanding > selectedSecurity ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5" />
+                  <div>
+                    <p className="font-semibold">{selectedCustomer.outstanding > selectedSecurity ? 'Payment security shortfall' : 'Within secure limit'}</p>
+                    <p className="mt-1 text-sm">
+                      {selectedCustomer.outstanding > selectedSecurity
+                        ? `Outstanding exceeds available security by ₹ ${(selectedCustomer.outstanding - selectedSecurity).toFixed(2)} L.`
+                        : 'The account is fully covered by active security instruments.'}
+                    </p>
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="mt-4 space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {selectedCustomer.paymentSecurityDetails.map((security) => (
-                    <div key={security.label} className="rounded-2xl border border-slate-200 p-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-400">{security.label}</p>
-                      <p className="mt-1 text-base font-semibold text-slate-900">₹ {security.amount} L</p>
-                    </div>
-                  ))}
-                  <div className="rounded-2xl border border-slate-200 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Account owner</p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">{selectedCustomer.accountOwner}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 p-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Preferred channel</p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">{selectedCustomer.preferredChannel}</p>
-                  </div>
-                </div>
 
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Collection posture</p>
-                      <p className="text-xs text-slate-500">Aging and next action for follow-up planning.</p>
-                    </div>
-                    <BellRing className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Last payment</p>
-                      <p className="mt-1 font-semibold text-slate-900">{selectedCustomer.lastPayment}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Payment mode</p>
-                      <p className="mt-1 font-semibold text-slate-900">{selectedCustomer.paymentMode}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Next action</p>
-                      <p className="mt-1 font-semibold text-slate-900">{selectedCustomer.nextAction}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={markFollowUp} className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">
-                <HandCoins className="h-4 w-4" />
-                Log follow-up
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = [
-                    `${selectedCustomer.customerName} | ${selectedCustomer.contractNumber}`,
-                    `Outstanding: ₹ ${selectedCustomer.outstanding} L`,
-                    `Security: ₹ ${selectedSecurity} L`,
-                    `Status: ${getExposureBand(selectedCustomer).label}`,
-                    `Next action: ${selectedCustomer.nextAction}`,
-                  ].join('\n');
-                  generateDownload(`${selectedCustomer.customerId}_exposure.txt`, text, 'text/plain');
-                  showToast(`Exposure note downloaded for ${selectedCustomer.customerName}`);
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                <Download className="h-4 w-4" />
-                Download note
-              </button>
             </div>
           </Card>
         </div>

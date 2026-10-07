@@ -125,7 +125,6 @@ function ConnectionTracker() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-[#2D3748]">Connection Tracking</h2>
-            <p className="mt-1 max-w-xl text-sm text-slate-500">Real-time telemetry across your pipeline onboarding journey.</p>
           </div>
           <div className="flex items-center gap-3">
             <span className="relative flex h-2.5 w-2.5">

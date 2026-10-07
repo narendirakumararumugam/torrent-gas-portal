@@ -7,7 +7,6 @@ import FilterBar from './reports/FilterBar';
 import ExportMenu from './reports/ExportMenu';
 import ScheduleModal from './reports/ScheduleModal';
 import CustomReportBuilder from './reports/CustomReportBuilder';
-import ProductionAnalysisPanel from './reports/ProductionAnalysisPanel';
 import ReportContentTabs from './reports/ReportContentTabs';
 import FloatingContractAssistant from './reports/FloatingContractAssistant';
 import { ReportEmptyState, ReportErrorState, ReportLoadingState } from './reports/ReportsStates';
@@ -16,11 +15,14 @@ import { useReportRun } from '../hooks/useReportRun';
 import { exportTableCsv } from '../utils/csvExport';
 import { downloadDataUrl } from '../utils/download';
 
+const DEFAULT_REPORT_FROM = '2026-10-01';
+const DEFAULT_REPORT_TO = '2026-10-08';
+
 function defaultFiltersFor(template) {
   return {
     preset: template.params.preset || 'custom',
-    from: template.params.from || '2026-08-01',
-    to: template.params.to || '2026-09-23',
+    from: template.params.from || DEFAULT_REPORT_FROM,
+    to: template.params.to || DEFAULT_REPORT_TO,
     granularity: template.params.granularity || 'daily',
     meterIds: template.params.meterIds || template.params.meters || ['MTR-1'],
     aggregation: 'separate',
@@ -31,7 +33,7 @@ function defaultFiltersFor(template) {
 }
 
 function ReportsHub({ onDownload, onShowToast, audience = 'customer' }) {
-  const [templates, setTemplates] = useState(baseTemplates.filter((t) => t.audience === 'both' || t.audience === audience));
+  const [templates, setTemplates] = useState(baseTemplates.filter((t) => (t.audience === 'both' || t.audience === audience) && t.type !== 'production_analysis'));
   const [selectedTemplate, setSelectedTemplate] = useState(templates[0]);
   const [filters, setFilters] = useState(() => defaultFiltersFor(templates[0]));
   const [scheduleOpen, setScheduleOpen] = useState(false);
@@ -53,6 +55,9 @@ function ReportsHub({ onDownload, onShowToast, audience = 'customer' }) {
   );
 
   const { status, result, retry, simulateError } = useReportRun(selectedTemplate.type, reportParams);
+  const compareOptions = selectedTemplate.type === 'consumption_timeseries' && (filters.granularity === 'daily' || filters.granularity === 'monthly')
+    ? ['month_over_month_and_last_year', 'previous_month', 'same_month_last_year']
+    : ['previous_period'];
   const selectTemplate = (template) => {
     setSelectedTemplate(template);
     setFilters(defaultFiltersFor(template));
@@ -90,7 +95,6 @@ function ReportsHub({ onDownload, onShowToast, audience = 'customer' }) {
   };
 
   const isCombined = filters.meterIds.length > 1 && selectedTemplate.type === 'consumption_timeseries';
-  const isProductionAnalysis = selectedTemplate.type === 'production_analysis';
 
   return (
     <div className="space-y-6">
@@ -139,26 +143,22 @@ function ReportsHub({ onDownload, onShowToast, audience = 'customer' }) {
           </div>
         </div>
 
-        {!isProductionAnalysis && <FilterBar filters={filters} onChange={setFilters} showAggregation={selectedTemplate.type === 'consumption_timeseries'} />}
+        <FilterBar filters={filters} onChange={setFilters} showAggregation={selectedTemplate.type === 'consumption_timeseries'} compareOptions={compareOptions} />
 
         {status === 'loading' && <ReportLoadingState />}
         {status === 'error' && <ReportErrorState onRetry={retry} />}
         {status === 'ready' && result && result.labels.length === 0 && <ReportEmptyState />}
 
         {status === 'ready' && result && result.labels.length > 0 && (
-          isProductionAnalysis ? (
-            <ProductionAnalysisPanel result={result} filters={filters} onChangeFilters={setFilters} chartRef={chartRef} />
-          ) : (
-            <ReportContentTabs
-              selectedTemplate={selectedTemplate}
-              result={result}
-              isCombined={isCombined}
-              chartRef={chartRef}
-              reportParams={reportParams}
-              onShowToast={onShowToast}
-              unit={selectedTemplate.type === 'revenue_receivables' || selectedTemplate.type === 'tariff_impact' ? 'INR' : 'SCM'}
-            />
-          )
+          <ReportContentTabs
+            selectedTemplate={selectedTemplate}
+            result={result}
+            isCombined={isCombined}
+            chartRef={chartRef}
+            reportParams={reportParams}
+            onShowToast={onShowToast}
+            unit={selectedTemplate.type === 'revenue_receivables' || selectedTemplate.type === 'tariff_impact' ? 'INR' : 'SCM'}
+          />
         )}
       </div>
 

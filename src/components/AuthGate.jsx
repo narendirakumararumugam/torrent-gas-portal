@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowRight, Building2, Flame, UserCircle2 } from 'lucide-react';
+import { ArrowRight, Building2, UserCircle2 } from 'lucide-react';
 import Card from './common/Card';
+import BrandMark from './common/BrandMark';
 import { corporateDepartments, customerCategories } from '../data/navigation';
 
 function AuthGate({ onSignIn }) {
@@ -22,16 +23,12 @@ function AuthGate({ onSignIn }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
       <Card className="w-full max-w-2xl p-6 text-center sm:p-8">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600/10 ring-1 ring-emerald-600/30">
-          <Flame className="h-6 w-6 text-emerald-600" />
+        <div className="mx-auto flex justify-center">
+          <BrandMark compact={false} />
         </div>
 
         <p className="mt-4 text-xs uppercase tracking-[0.3em] text-slate-400">Enterprise Utility Portal</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">PNG Custom Self Service Portal</h1>
-        <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-500">
-          A unified self-service workspace for industrial &amp; commercial gas customers and internal teams covering
-          connection tracking, contracts, billing, reporting, complaints, and tariffs.
-        </p>
+        <h1 className="mt-2 text-2xl font-semibold text-slate-900">Torrent Gas Custom Self Service Portal</h1>
 
         <h2 className="mt-8 text-2xl font-semibold text-slate-900">Sign in to continue</h2>
         <p className="mt-1 text-sm text-slate-500">Choose a persona to access the relevant workspace.</p>

@@ -1,14 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { BellRing, ChevronRight, Gauge, Search, Send, ShieldCheck, Target, Users } from 'lucide-react';
+import { BellRing, ChevronRight, Search, ShieldCheck, Target, Users } from 'lucide-react';
 import Card from './common/Card';
 import SectionHeading from './common/SectionHeading';
-import CollapsibleSection from './common/CollapsibleSection';
 import CustomerDetailView from './CustomerDetailView';
 import { CUSTOMERS } from '../data/existing-customers.data.js';
 import { downloadCustomerContract } from '../utils/customerContracts';
-
-const MASTER_GCV_DEFAULT = 9300;
-const DISPATCH_TIMESTAMP = '23 Sep 2026 · 08:00 AM';
+import { buildCustomerProfiles, DEFAULT_EFFECTIVE_GCV_DATE, MASTER_GCV_DEFAULT } from '../utils/customerCommunications';
 
 function isCommissioned(customer) {
   return customer.contractStatus === 'Active' || customer.contractStatus === 'Expiring soon';
@@ -18,27 +15,11 @@ function customerStatusLabel(customer) {
   return isCommissioned(customer) ? 'Commissioned' : 'Agreement Signed - Yet to Commission';
 }
 
-function buildCustomers(masterGcv) {
-  return CUSTOMERS.map((customer, index) => {
-    const commissioned = isCommissioned(customer);
-    const dailyConsumption = customer.currentConsumption ?? 0;
-    const mmbtuValue = Number(((dailyConsumption * masterGcv) / 252000).toFixed(2));
-
-    return {
-      ...customer,
-      mmbtuValue,
-      dailyCommunication: commissioned && index % 2 === 0,
-      lastSentDate: commissioned && index % 2 === 0 ? DISPATCH_TIMESTAMP : '—',
-    };
-  });
-}
-
 function ExistingCustomers({ onShowToast }) {
   const toast = onShowToast ?? (() => {});
-  const [masterGcv, setMasterGcv] = useState(MASTER_GCV_DEFAULT);
-  const [tempMasterGcv, setTempMasterGcv] = useState(MASTER_GCV_DEFAULT);
-  const [effectiveGcvDate, setEffectiveGcvDate] = useState('10 Aug 2026');
-  const [customers, setCustomers] = useState(() => buildCustomers(MASTER_GCV_DEFAULT));
+  const masterGcv = MASTER_GCV_DEFAULT;
+  const effectiveGcvDate = DEFAULT_EFFECTIVE_GCV_DATE;
+  const customers = useMemo(() => buildCustomerProfiles(masterGcv), [masterGcv]);
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
   const [industry, setIndustry] = useState('');
@@ -105,63 +86,12 @@ function ExistingCustomers({ onShowToast }) {
     setSelectedCustomerId(null);
   };
 
-  const recalcMasterGcv = () => {
-    setMasterGcv(tempMasterGcv);
-    setCustomers((current) =>
-      current.map((customer) => ({
-        ...customer,
-        mmbtuValue: Number((((customer.currentConsumption ?? 0) * tempMasterGcv) / 252000).toFixed(2)),
-      })),
-    );
-    toast(`Master GCV updated to ${tempMasterGcv} kcal/SCM and applied to all customers.`);
-  };
-
-  const toggleDailyCommunication = (customerId, checked) => {
-    const current = customers.find((customer) => customer.id === customerId);
-    if (!current || !isCommissioned(current)) {
-      toast('Daily communication is available only for commissioned customers.');
-      return;
-    }
-
-    setCustomers((list) =>
-      list.map((customer) =>
-        customer.id === customerId
-          ? { ...customer, dailyCommunication: checked, lastSentDate: checked ? DISPATCH_TIMESTAMP : customer.lastSentDate }
-          : customer,
-      ),
-    );
-  };
-
-  const sendMorningDispatchNow = () => {
-    let enabledCount = 0;
-    setCustomers((list) =>
-      list.map((customer) => {
-        if (customer.dailyCommunication && isCommissioned(customer)) {
-          enabledCount += 1;
-          return { ...customer, lastSentDate: DISPATCH_TIMESTAMP };
-        }
-        return customer;
-      }),
-    );
-    toast(`Morning dispatch sent to ${enabledCount} commissioned customers with Daily Communication enabled.`);
-  };
-
   return (
     <div className="space-y-6">
       <SectionHeading
         eyebrow="Marketing"
         title="Existing Customers"
-        description="Customer relationships, contract summaries, and Master GCV controls in one workspace."
-        action={
-          <button
-            type="button"
-            onClick={sendMorningDispatchNow}
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-          >
-            <Send className="h-4 w-4" />
-            Trigger Morning Dispatch
-          </button>
-        }
+        description="Customer relationships and contract summaries in one workspace. Communication workflows live in Customer Communications."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -182,39 +112,6 @@ function ExistingCustomers({ onShowToast }) {
           </Card>
         ))}
       </div>
-
-      <CollapsibleSection title="Master Tariff Control" subtitle={`Master GCV active ${masterGcv} kcal/SCM · effective ${effectiveGcvDate}`} icon={Gauge} defaultOpen>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <label className="block text-sm font-medium text-slate-700">
-            Master GCV (kcal/SCM)
-            <input
-              type="number"
-              value={tempMasterGcv}
-              onChange={(event) => setTempMasterGcv(Number(event.target.value))}
-              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-600"
-            />
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
-            Effective date
-            <input
-              type="text"
-              value={effectiveGcvDate}
-              onChange={(event) => setEffectiveGcvDate(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-slate-900 outline-none transition focus:border-emerald-600"
-            />
-          </label>
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={recalcMasterGcv}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
-            >
-              <Send className="h-4 w-4" />
-              Apply Master GCV
-            </button>
-          </div>
-        </div>
-      </CollapsibleSection>
 
       {!selectedCustomer && (
         <>
@@ -296,8 +193,6 @@ function ExistingCustomers({ onShowToast }) {
                     <th className="px-5 py-3.5">Customer Status</th>
                     <th className="px-5 py-3.5">Agreement Expiry</th>
                     <th className="px-5 py-3.5">Daily SCM</th>
-                    <th className="px-5 py-3.5">Daily Communication</th>
-                    <th className="px-5 py-3.5">Last Sent Status</th>
                     <th className="px-5 py-3.5">Payment Status</th>
                     <th className="px-5 py-3.5" />
                   </tr>
@@ -321,26 +216,6 @@ function ExistingCustomers({ onShowToast }) {
                         <td className="px-5 py-3.5 align-top font-semibold text-slate-900">
                           {customer.currentConsumption > 0 ? `${customer.currentConsumption.toLocaleString()} SCM` : <span className="font-normal text-slate-400">0 SCM</span>}
                         </td>
-                        <td className="px-5 py-3.5 align-top" onClick={(event) => event.stopPropagation()}>
-                          {commissioned ? (
-                            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(customer.dailyCommunication)}
-                                onChange={(event) => toggleDailyCommunication(customer.id, event.target.checked)}
-                                className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
-                              />
-                              {customer.dailyCommunication ? 'ON' : 'OFF'}
-                            </label>
-                          ) : (
-                            <span className="text-xs text-slate-400">N/A</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3.5 align-top">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${customer.lastSentDate !== '—' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                            {customer.lastSentDate}
-                          </span>
-                        </td>
                         <td className="px-5 py-3.5 align-top text-slate-700">
                           {customer.paymentStatus}
                         </td>
@@ -362,7 +237,7 @@ function ExistingCustomers({ onShowToast }) {
                   })}
                   {filteredCustomers.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-5 py-6 text-center text-sm text-slate-500">No customer profiles match the selected filters.</td>
+                      <td colSpan={6} className="px-5 py-6 text-center text-sm text-slate-500">No customer profiles match the selected filters.</td>
                     </tr>
                   )}
                 </tbody>

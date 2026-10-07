@@ -39,6 +39,17 @@ function parseFirstNumber(value) {
   return match ? Number(match[0]) : 0;
 }
 
+function shiftMonth(dateLike, months) {
+  const date = new Date(`${dateLike}T00:00:00Z`);
+  const day = date.getUTCDate();
+  const targetYear = date.getUTCFullYear();
+  const targetMonth = date.getUTCMonth() + months;
+  const firstOfTargetMonth = new Date(Date.UTC(targetYear, targetMonth, 1));
+  const lastDayOfTargetMonth = new Date(Date.UTC(firstOfTargetMonth.getUTCFullYear(), firstOfTargetMonth.getUTCMonth() + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDayOfTargetMonth);
+  return new Date(Date.UTC(firstOfTargetMonth.getUTCFullYear(), firstOfTargetMonth.getUTCMonth(), clampedDay)).toISOString().slice(0, 10);
+}
+
 const PRODUCTION_SLAB_RATES = currentInvoiceBreakdown.rows.reduce((accumulator, row) => {
   const label = row.label.toLowerCase();
   const key = label.includes('non-mgo') ? 'nonMgo' : label.includes('excess') ? 'excess' : 'mgo';
@@ -150,12 +161,12 @@ function buildProductionScenarioRows(series, scenarioLabel) {
 function computeProductionAnalysis(params) {
   const from = params.from || '2026-08-01';
   const to = params.to || '2026-08-31';
-  const mode = params.simulationMode || 'historical';
+  const mode = params.simulationMode || 'peak_shift';
   const balanceStrength = Number(params.balanceStrength ?? 45);
 
   const history = buildProductionHistory(from, to);
   const forecastSeries = smoothProductionHistory(history, mode, balanceStrength);
-  const scenarioLabel = mode === 'mgo_first' ? 'MGO-first forecast' : mode === 'peak_shift' ? 'Peak-shaved forecast' : 'Replay last month';
+  const scenarioLabel = 'Peak-shaved forecast';
 
   const baseline = buildProductionScenarioRows(history, 'Historical draw');
   const forecast = buildProductionScenarioRows(forecastSeries, scenarioLabel);
@@ -299,6 +310,46 @@ function buildInsights({ total, avg, percentOfDCQ, anomalies, compareTotal }) {
   return insights;
 }
 
+function buildComparisonSeries({ buckets, selectedMeters, granularity, compareTo, from, to }) {
+  const buildShiftedSeries = (label, monthShift) => ({
+    label,
+    data: buckets.map((bucketIso) => {
+      const shiftedDate = shiftMonth(bucketIso.slice(0, 10), monthShift);
+      const shiftedBucket = `${shiftedDate}T00:00:00Z`;
+      return round1(selectedMeters.reduce((sum, meter) => sum + valueForBucket(meter, shiftedBucket, granularity).value, 0));
+    }),
+  });
+
+  const buildPreviousPeriodSeries = () => {
+    const rangeMs = new Date(to) - new Date(from) || 86400000;
+    const prevTo = new Date(new Date(`${from}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
+    const prevFrom = new Date(new Date(`${prevTo}T00:00:00Z`).getTime() - rangeMs).toISOString().slice(0, 10);
+    const prevBuckets = enumerateBuckets(prevFrom, prevTo, granularity).slice(0, buckets.length);
+    return [{
+      label: 'Previous Period',
+      data: prevBuckets.map((bucketIso) => round1(selectedMeters.reduce((sum, meter) => sum + valueForBucket(meter, bucketIso, granularity).value, 0))),
+    }];
+  };
+
+  const normalizedCompareTo = compareTo === '' ? 'none' : (compareTo || null);
+
+  if (normalizedCompareTo === 'none') return null;
+
+  if (granularity === 'monthly') {
+    if (normalizedCompareTo === 'same_month_last_year') return [buildShiftedSeries('Same Month Last Year', -12)];
+    if (normalizedCompareTo === 'previous_month') return [buildShiftedSeries('Previous Month', -1)];
+    return [buildShiftedSeries('Previous Month', -1), buildShiftedSeries('Same Month Last Year', -12)];
+  }
+
+  if (normalizedCompareTo === 'previous_month') return [buildShiftedSeries('Previous Month', -1)];
+  if (normalizedCompareTo === 'same_month_last_year') return [buildShiftedSeries('Same Month Last Year', -12)];
+  if (normalizedCompareTo === 'month_over_month_and_last_year') {
+    return [buildShiftedSeries('Previous Month', -1), buildShiftedSeries('Same Month Last Year', -12)];
+  }
+
+  return normalizedCompareTo === 'previous_period' ? buildPreviousPeriodSeries() : null;
+}
+
 function computeConsumptionTimeseries(params) {
   const { from, to, granularity = 'daily', meterIds = ['MTR-1'], compareTo, aggregation = 'separate' } = params;
   const selectedMeters = meters.filter((meter) => meterIds.includes(meter.id));
@@ -328,14 +379,8 @@ function computeConsumptionTimeseries(params) {
   const totalDCQ = selectedMeters.reduce((sum, m) => sum + m.dcq, 0) * buckets.length * bucketDurationDays(granularity);
   const percentOfDCQ = totalDCQ ? round1((total / totalDCQ) * 100) : 0;
 
-  let compareSeries = null;
-  if (compareTo === 'previous_period' && buckets.length > 0) {
-    const rangeMs = new Date(to) - new Date(from) || 86400000;
-    const prevTo = new Date(new Date(`${from}T00:00:00Z`).getTime() - 86400000).toISOString().slice(0, 10);
-    const prevFrom = new Date(new Date(`${prevTo}T00:00:00Z`).getTime() - rangeMs).toISOString().slice(0, 10);
-    const prevBuckets = enumerateBuckets(prevFrom, prevTo, granularity).slice(0, buckets.length);
-    compareSeries = prevBuckets.map((bucketIso) => round1(selectedMeters.reduce((sum, meter) => sum + valueForBucket(meter, bucketIso, granularity).value, 0)));
-  }
+  const compareSeries = buckets.length > 0 ? buildComparisonSeries({ buckets, selectedMeters, granularity, compareTo, from, to }) : null;
+  const compareInsightTotal = Array.isArray(compareSeries) && compareSeries[0]?.data ? compareSeries[0].data.reduce((a, b) => a + b, 0) : null;
 
   const anomalies = [];
   series.forEach((s) => {
@@ -357,7 +402,7 @@ function computeConsumptionTimeseries(params) {
     compareSeries,
     stats: { total: Math.round(total), avg: Math.round(avg), peak: Math.round(peak), min: Math.round(min), percentOfDCQ },
     table,
-    insights: buildInsights({ total, avg, percentOfDCQ, anomalies, compareTotal: compareSeries ? compareSeries.reduce((a, b) => a + b, 0) : null }),
+    insights: buildInsights({ total, avg, percentOfDCQ, anomalies, compareTotal: compareInsightTotal }),
     anomalies,
   };
 }

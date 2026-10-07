@@ -9,7 +9,7 @@ function AnomalyRibbon({ anomalies }) {
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
       <div className="flex items-center gap-2 text-amber-800">
         <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-        <p className="text-xs font-semibold uppercase tracking-wide">{anomalies.length} anomal{anomalies.length === 1 ? 'y' : 'ies'} detected</p>
+        <p className="text-xs font-semibold uppercase tracking-wide">{anomalies.length} alert{anomalies.length === 1 ? '' : 's'} detected</p>
       </div>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
         {anomalies.map((item, index) => (

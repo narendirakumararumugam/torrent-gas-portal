@@ -15,11 +15,11 @@ export const contractProfile = {
     dcq: '300 MMBTU',
     mdcq: '500 MMBTU',
     mgo: '90%',
-    mgoObligation: 'Quarterly',
+    mgoObligation: 'Monthly',
     excessLimit: '120%',
     excessLimitCriteria: 'Daily',
     meterType: 'G100 RPD',
-    deliveryPressure: '4 bar(g)',
+    deliveryPressure: '1.5 bar(g)',
     maxAllowableFlowRate: '368 SCMH',
   },
   history: [
@@ -45,7 +45,6 @@ export const contractProfile = {
       changes: [
         { label: 'DCQ', before: '250 MMBTU/day', after: '300 MMBTU/day' },
         { label: 'Excess Limit', before: '110%', after: '120%' },
-        { label: 'MGO Obligation', before: 'Monthly', after: 'Quarterly' },
       ],
     },
     {
@@ -56,8 +55,6 @@ export const contractProfile = {
       effectivePeriod: '01 Sep 2026',
       changes: [
         { label: 'MDQ / MDCQ', before: '450 MMBTU/day', after: '500 MMBTU/day' },
-        { label: 'Delivery Pressure', before: '1.5 bar(g)', after: '4 bar(g)' },
-        { label: 'Maximum Allowable Flow Rate', before: '150 SCMH', after: '368 SCMH' },
       ],
     },
   ],

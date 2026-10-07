@@ -14,7 +14,7 @@ function BillsHeader({ customerName, customerLocation, invoiceCycles, onSelectIn
         </p>
         <h2 className="mt-1 text-2xl font-semibold text-blue-950">Bills &amp; Payments</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Customer: <span className="font-medium text-blue-900">{customerName}</span> ({customerLocation})
+          Customer: <span className="font-medium text-blue-900">{customerName}</span>
         </p>
       </div>
 
@@ -45,7 +45,7 @@ function BillsHeader({ customerName, customerLocation, invoiceCycles, onSelectIn
             className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />
-            Generate Ledger Statement
+            Download account Statement
           </button>
         </div>
       </div>

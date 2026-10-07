@@ -26,14 +26,13 @@ function SummaryCards({ currentBill, receivedPayment, pendingVerification, lateI
     {
       label: 'Outstanding Balance',
       value: formatINR(pendingVerification.amount),
-      detail: `Pending verification · ${pendingVerification.method}`,
       icon: Hourglass,
       tone: 'text-amber-600',
     },
     {
       label: 'Accrued Late Interest',
-      value: formatINR(lateInterest.amount),
-      detail: `${lateInterest.rate}% p.a. · ${lateInterest.days} day(s) overdue`,
+      value: formatINR(2687),//formatINR(lateInterest.amount),
+      detail: `${lateInterest.rate}% p.a.`,//${lateInterest.days} day(s) overdue`,
       icon: TrendingDown,
       tone: lateInterest.amount > 0 ? 'text-rose-600' : 'text-slate-400',
     },

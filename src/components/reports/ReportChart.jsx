@@ -15,6 +15,7 @@ import {
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Legend, Tooltip);
 
 const palette = ['#059669', '#2563eb', '#d97706', '#7c3aed', '#dc2626'];
+const comparePalette = ['#94a3b8', '#0f766e', '#c2410c', '#4c1d95'];
 
 /* Chart.js wrapper - handles anomaly point highlighting and a "previous period" compare overlay */
 const ReportChart = forwardRef(function ReportChart({ chartType = 'line', labels, series, compareSeries, stacked = false, height = 280 }, ref) {
@@ -35,15 +36,36 @@ const ReportChart = forwardRef(function ReportChart({ chartType = 'line', labels
     return base;
   });
 
-  if (compareSeries) {
+  const compareDatasets = Array.isArray(compareSeries)
+    ? (compareSeries.length > 0 && typeof compareSeries[0] === 'object' && Array.isArray(compareSeries[0].data)
+      ? compareSeries
+      : [{ label: 'Previous Period', data: compareSeries }])
+    : [];
+
+  compareDatasets.forEach((compare, index) => {
+    const color = compare.borderColor || comparePalette[index % comparePalette.length];
+    datasets.push({
+      label: compare.label || 'Previous Period',
+      data: compare.data,
+      borderColor: color,
+      backgroundColor: 'transparent',
+      borderDash: compare.dashed === false ? undefined : [4, 4],
+      pointRadius: 0,
+      tension: 0.35,
+      fill: false,
+    });
+  });
+
+  if (!Array.isArray(compareSeries) && compareSeries) {
     datasets.push({
       label: 'Previous Period',
       data: compareSeries,
-      borderColor: '#94a3b8',
+      borderColor: comparePalette[0],
       backgroundColor: 'transparent',
       borderDash: [4, 4],
       pointRadius: 0,
       tension: 0.35,
+      fill: false,
     });
   }
 

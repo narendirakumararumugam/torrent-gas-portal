@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { BadgeCheck, Bell, ChevronDown, Flame, LogOut, Menu, Search, Settings, UserCircle2 } from 'lucide-react';
+import { BadgeCheck, Bell, ChevronDown, LogOut, Menu, Search, Settings, UserCircle2 } from 'lucide-react';
+import BrandMark from './common/BrandMark';
 
 const notifications = [
   { title: 'Meter installation completed', time: '2h ago' },
@@ -18,9 +19,7 @@ function AppHeader({ profile, onMenuClick, onProfileAction }) {
           <button type="button" onClick={onMenuClick} className="rounded-lg p-2 text-slate-300 transition hover:bg-slate-800 lg:hidden">
             <Menu className="h-5 w-5" />
           </button>
-          <div className="hidden h-9 w-9 items-center justify-center rounded-lg bg-emerald-600/20 text-emerald-400 ring-1 ring-emerald-600/40 sm:flex">
-            <Flame className="h-4.5 w-4.5" />
-          </div>
+          <BrandMark showText={false} compact className="hidden sm:flex" />
           <div className="relative hidden md:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input

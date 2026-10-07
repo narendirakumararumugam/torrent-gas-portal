@@ -1,6 +1,7 @@
 import React from 'react';
 import BillsHeader from './billing/BillsHeader';
 import ExposureBanner from './billing/ExposureBanner';
+import DailyConsumptionTable from './billing/DailyConsumptionTable';
 import SummaryCards from './billing/SummaryCards';
 import BillingHistoryChart from './billing/BillingHistoryChart';
 import InvoiceBreakdownTable from './billing/InvoiceBreakdownTable';
@@ -17,6 +18,7 @@ import {
   supplierProfile,
   BILLING_REFERENCE_DATE,
 } from '../data/billsPayments';
+import { billingConsumptionTableRows } from '../data/mgoFlowAnalysis';
 import { getCycleLedger, getExposureSummary, resolveInvoiceBreakdown, LATE_PAYMENT_INTEREST_RATE } from '../utils/billingEngine';
 import { generateTaxInvoicePdf } from '../utils/invoicePdf';
 import { exportTableCsv } from '../utils/csvExport';
@@ -31,6 +33,10 @@ function BillingCenter({ onShowToast }) {
   const ledger = getCycleLedger(billingCycles, BILLING_REFERENCE_DATE);
   const lastCycle = billingCycles[billingCycles.length - 1];
   const exposure = getExposureSummary({ lastCycle, unbilledCycle: currentUnbilledCycle, availableSecurity: availablePaymentSecurity });
+  const currentUnbilledBreakdown = resolveInvoiceBreakdown(
+    { id: `${currentUnbilledCycle.id}-ESTIMATE`, invoiced: currentUnbilledCycle.usageToDate },
+    currentInvoiceBreakdown,
+  );
 
   const overdueCycle = ledger.find((cycle) => cycle.outstanding > 0);
   const lateInterest = overdueCycle
@@ -81,6 +87,22 @@ function BillingCenter({ onShowToast }) {
         <PaymentDelayChart ledger={ledger} />
         <AgingLedgerTable ledger={ledger} interestRate={LATE_PAYMENT_INTEREST_RATE} />
       </div>
+
+      <DailyConsumptionTable
+        rows={billingConsumptionTableRows}
+        title="Unbilled Daily Gas Consumption (as on yesterday)"
+        subtitle="Current unbilled consumption breakdown"
+      />
+
+      <InvoiceBreakdownTable
+        invoiceBreakdown={currentUnbilledBreakdown}
+        cycleLabel={currentUnbilledCycle.label}
+        title="Current Unbilled Value Breakdown"
+        subtitle="Estimated breakdown as on"
+        subtotalLabel="Estimated Subtotal"
+        vatLabel="Estimated VAT (5%)"
+        totalLabel="Estimated Unbilled Value"
+      />
     </div>
   );
 }

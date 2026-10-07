@@ -23,8 +23,8 @@ import CorporateWorkspace from './components/CorporateWorkspace';
 import ApprovalsPanel from './components/ApprovalsPanel';
 import ExistingCustomers from './components/ExistingCustomers';
 import PipelineFeasibilityCheck from './components/PipelineFeasibilityCheck';
+import MarketingCustomerCommunications from './components/marketing/MarketingCustomerCommunications';
 import MarketingBillingExposure from './components/marketing/MarketingBillingExposure';
-import MarketingTariffRevision from './components/marketing/MarketingTariffRevision';
 import RegisteredComplaints from './components/marketing/RegisteredComplaints';
 import { commercialCustomerNav, industrialCustomerNav, corporateNav, marketingNav } from './data/navigation';
 import { generateDownload } from './utils/download';
@@ -135,13 +135,13 @@ function App() {
   };
 
   const downloadContract = (contractNumber) => {
-    generateDownload(`${contractNumber}.pdf`, `Contract Summary\n${contractNumber}\nCNG Custom Self Service Portal`, 'application/pdf');
+    generateDownload(`${contractNumber}.pdf`, `Contract Summary\n${contractNumber}\nTorrent Gas Custom Self Service Portal`, 'application/pdf');
     showToast(`Download started for ${contractNumber}`);
   };
 
   const downloadReport = (title, format) => {
     const extension = format.toLowerCase();
-    const content = format === 'CSV' ? `title\n${title}` : `Report: ${title}\nCNG Custom Self Service Portal`;
+    const content = format === 'CSV' ? `title\n${title}` : `Report: ${title}\nTorrent Gas Custom Self Service Portal`;
     generateDownload(`${title.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.${extension}`, content, format === 'CSV' ? 'text/csv' : 'application/pdf');
     showToast(`${format} export generated for ${title}`);
   };
@@ -196,10 +196,10 @@ function App() {
         return <ExistingCustomers onShowToast={showToast} />;
       case '/corporate/pipeline-feasibility':
         return <PipelineFeasibilityCheck onShowToast={showToast} />;
+      case '/corporate/customer-communications':
+        return <MarketingCustomerCommunications onShowToast={showToast} />;
       case '/corporate/bills-payments-exposure':
         return <MarketingBillingExposure onShowToast={showToast} />;
-      case '/corporate/tariff-price-revision':
-        return <MarketingTariffRevision onShowToast={showToast} />;
       case '/corporate/registered-complaints':
         return <RegisteredComplaints onShowToast={showToast} />;
       case '/corporate/requests':

@@ -9,14 +9,16 @@ function FileList({ tabLabel, documents, onUploadFiles, onView, onDownload }) {
     <div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-medium text-slate-500">{documents.length} file{documents.length === 1 ? '' : 's'}</p>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
-        >
-          <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-          Upload Files
-        </button>
+        {tabLabel === 'Unsigned' &&
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+          >
+            <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+            Upload Files
+          </button>
+        }
         <input
           ref={inputRef}
           type="file"

@@ -44,8 +44,8 @@ export const commercialCustomerNav = [
 export const marketingNav = [
   { id: 'pipeline-feasibility', label: 'GIS Pipeline Feasibility', icon: Route, path: '/corporate/pipeline-feasibility' },
   { id: 'existing-customers', label: 'Existing Customers', icon: FileText, path: '/corporate/existing-customers' },
+  { id: 'customer-communications', label: 'Customer Communications', icon: MessageSquareMore, path: '/corporate/customer-communications' },
   { id: 'bills-payments-exposure', label: 'Bills & Payments', icon: Receipt, path: '/corporate/bills-payments-exposure' },
-  { id: 'tariff-price-revision', label: 'Tariff & Price Revision', icon: Sparkles, path: '/corporate/tariff-price-revision' },
   { id: 'registered-complaints', label: 'Registered Complaints', icon: MessageSquareMore, path: '/corporate/registered-complaints' },
 ];
 
