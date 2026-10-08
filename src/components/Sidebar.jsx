@@ -49,7 +49,7 @@ function Sidebar({ navItems, activePath, onNavigate, mobileOpen, onCloseMobile, 
                 } ${collapsed ? 'justify-center' : ''}`}
               >
                 <Icon className="h-4.5 w-4.5 shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
+                {!collapsed && <span className="whitespace-nowrap text-left">{item.label}</span>}
               </button>
             );
           })}

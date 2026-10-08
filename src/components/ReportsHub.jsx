@@ -102,7 +102,6 @@ function ReportsHub({ onDownload, onShowToast, audience = 'customer' }) {
         <SectionHeading
           eyebrow="Analytics"
           title="Reports Hub"
-          description="Generate, filter, and schedule operational, tariff, and financial reports."
         />
         <button
           type="button"

@@ -17,7 +17,7 @@ import { TARIFF_HISTORY_DATA } from '../data/tariffHistoryData';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Legend, Tooltip);
 
-const currentBillingCycleLabel = 'Sep-26 FN2';
+const currentBillingCycleLabel = 'Oct-26 FN1';
 
 function formatMoney(value) {
   return `₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -151,7 +151,6 @@ function TariffBoard({ showHeading = true }) {
         <SectionHeading
           eyebrow="Pricing"
           title={`Current Billing Cycle Pricing (${currentBillingCycleLabel})`}
-          description="Active tariff rates, slab structure, and historical trend for the current active month."
           action={
             <button
               type="button"

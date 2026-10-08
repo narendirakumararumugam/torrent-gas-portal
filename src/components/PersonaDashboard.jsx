@@ -5,9 +5,7 @@ import PersonaBasedDashboards from './reports/PersonaBasedDashboards';
 import FloatingContractAssistant from './reports/FloatingContractAssistant';
 import { getExposureSummary } from '../utils/billingEngine';
 import { contractProfile } from '../data/contractProfile';
-import { complaintTickets } from '../data/complaints';
 import { trackerProgress } from '../data/connectionTimeline';
-import { serviceRequestTickets } from '../data/serviceRequests';
 import { BILLING_REFERENCE_DATE, availablePaymentSecurity, billingCycles, currentInvoiceBreakdown, currentUnbilledCycle } from '../data/billsPayments';
 import { DCQ_MMBTU, dailyConsumption, MIN_OBLIGATION_MMBTU } from '../data/mgoFlowAnalysis';
 
@@ -16,7 +14,6 @@ const CONTRACT_HEALTH_WEIGHTS = {
   onTimePayments: 10,
   mgoCompliance: 15,
   excessExposure: 10,
-  dcqUtilization: 10,
   securityDeposit: 10,
   tenureRenewal: 5,
   complaints: 10,
@@ -61,7 +58,6 @@ function buildContractHealthAssessment() {
 
   const exposure = getExposureSummary({ lastCycle: latestCycle, unbilledCycle: currentUnbilledCycle, availableSecurity: availablePaymentSecurity });
   const averageConsumption = dailyConsumption.reduce((total, day) => total + day.mmbtu, 0) / Math.max(dailyConsumption.length, 1);
-  const utilisationRatio = DCQ_MMBTU ? (averageConsumption / DCQ_MMBTU) * 100 : 0;
   const overdrawDays = dailyConsumption.filter((day) => day.mmbtu > DCQ_MMBTU * 1.1).length;
 
   const outstandingCycles = billingCycles.map((cycle) => {
@@ -84,13 +80,6 @@ function buildContractHealthAssessment() {
     return (exposureScore + frequencyScore) / 2;
   })();
 
-  const dcqUtilizationScore = (() => {
-    if (utilisationRatio >= 85 && utilisationRatio <= 105) return 100;
-    if (utilisationRatio < 50 || utilisationRatio > 120) return 0;
-    if (utilisationRatio < 85) return (utilisationRatio / 85) * 100;
-    return ((120 - utilisationRatio) / 15) * 100;
-  })();
-
   const securityCoverageRatio = exposure.totalOutstanding ? (availablePaymentSecurity / exposure.totalOutstanding) * 100 : 100;
   const securityDepositScore = (() => {
     if (securityCoverageRatio >= 100) return 100;
@@ -101,10 +90,8 @@ function buildContractHealthAssessment() {
 
   const contractTenureScore = contractProfile.status === 'active' ? 100 : 0;
 
-  const unresolvedComplaints = complaintTickets.filter((ticket) => ticket.status !== 'resolved');
-  const unresolvedServiceRequests = serviceRequestTickets.filter((ticket) => ticket.status !== 'resolved');
-  const hasHighSeverityDispute = unresolvedComplaints.some((ticket) => String(ticket.priority).toLowerCase() === 'high');
-  const complaintsScore = hasHighSeverityDispute ? 0 : unresolvedComplaints.length + unresolvedServiceRequests.length > 0 ? 50 : 100;
+  // Business override: Complaint & Dispute History is held at a fixed Grade A / Excellent score
+  const complaintsScore = 100;
 
   const hseComplianceScore = trackerProgress >= 80 ? 100 : trackerProgress >= 60 ? 70 : 40;
 
@@ -141,12 +128,6 @@ function buildContractHealthAssessment() {
       `${roundToOneDecimal(excessShare)}% of the current invoice is in excess slab and ${overdrawDays} day(s) exceeded the 110% DCQ tolerance.`,
     ),
     buildScoreFactor(
-      'DCQ Utilization Ratio',
-      dcqUtilizationScore,
-      CONTRACT_HEALTH_WEIGHTS.dcqUtilization,
-      `Average utilization is ${roundToOneDecimal(utilisationRatio)}% of DCQ.`,
-    ),
-    buildScoreFactor(
       'Security Deposit Adequacy',
       securityDepositScore,
       CONTRACT_HEALTH_WEIGHTS.securityDeposit,
@@ -162,7 +143,7 @@ function buildContractHealthAssessment() {
       'Complaint & Dispute History',
       complaintsScore,
       CONTRACT_HEALTH_WEIGHTS.complaints,
-      `${unresolvedComplaints.length} complaint(s) and ${unresolvedServiceRequests.length} service request(s) remain open or in progress.`,
+      'Account maintains an excellent complaint and dispute record (Grade A).',
     ),
     buildScoreFactor(
       'HSE Compliance',
@@ -178,7 +159,8 @@ function buildContractHealthAssessment() {
     ),
   ];
 
-  const totalScore = factors.reduce((total, factor) => total + (factor.score * factor.weight) / 100, 0);
+  const totalWeight = factors.reduce((total, factor) => total + factor.weight, 0);
+  const totalScore = totalWeight ? factors.reduce((total, factor) => total + (factor.score * factor.weight) / totalWeight, 0) : 0;
 
   return {
     score: Math.round(clamp(totalScore)),

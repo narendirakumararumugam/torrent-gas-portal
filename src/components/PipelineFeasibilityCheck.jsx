@@ -45,19 +45,16 @@ const modeOptions = [
     key: 'feasibility',
     label: 'New Connection',
     icon: Route,
-    description: 'Click a new customer coordinate to compare a valve-chamber tap-off against a direct pipeline hot-tap.',
   },
   {
     key: 'isolation',
     label: 'Isolation / Damage',
     icon: TriangleAlert,
-    description: 'Click a pipeline segment or a customer point to simulate maintenance or damage isolation.',
   },
   {
     key: 'pressure',
     label: 'Pressure Status',
     icon: Gauge,
-    description: `Live terminal pressure for every connected customer, calculated from real pipeline distance. Anyone below ${PRESSURE_ALERT_THRESHOLD_BAR.toFixed(1)} bar triggers a WhatsApp + email alert to the internal team.`,
   },
 ];
 
@@ -171,7 +168,6 @@ function PipelineFeasibilityCheck({ onShowToast }) {
     () => buildConnectionOptions(targetLocation, { flowScmh, drsPressureBar, minPressureBar, material, roughness, gasTemperature, elevationRiseM }),
     [targetLocation, flowScmh, drsPressureBar, minPressureBar, material, roughness, gasTemperature, elevationRiseM, networkReady],
   );
-  const selectedOption = connectionOptions[selectedOptionKey];
   const isolationAssessment = useMemo(() => (damageLocation ? buildIsolationAssessment(damageLocation) : null), [damageLocation, networkReady]);
 
   const drsLoadSummary = useMemo(() => getDrsLoadSummary('DRS_1'), []);
@@ -556,7 +552,6 @@ function PipelineFeasibilityCheck({ onShowToast }) {
       <SectionHeading
         eyebrow="Marketing"
         title="Gummidipoondi Pipeline Feasibility & Isolation Analysis"
-        description="Point-and-click connection feasibility and emergency isolation planning for the Gummidipoondi Industrial Area distribution network."
       />
 
       <div className="grid gap-6 xl:grid-cols-[390px_1fr]">
@@ -595,7 +590,6 @@ function PipelineFeasibilityCheck({ onShowToast }) {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600">New customer coordinates</p>
-                    <h3 className="mt-1 text-lg font-semibold text-slate-900">{targetLocation.name}</h3>
                     <p className="mt-1 text-sm text-slate-500">Click anywhere on the map to place the new connection, or drag the marker directly.</p>
                     {!networkReady && <p className="mt-2 text-xs font-semibold text-amber-700">Snapping existing network segments to the road service...</p>}
                   </div>
@@ -1181,32 +1175,23 @@ function PipelineFeasibilityCheck({ onShowToast }) {
             <div ref={mapContainerRef} className="min-h-[720px] w-full" />
           </Card>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Selected option</p>
-                  <p className="mt-1 text-lg font-semibold text-slate-900">{selectedResolvedOption?.label || 'No option selected'}</p>
-                  <p className="mt-1 text-sm text-slate-500">Tap point: {selectedResolvedOption?.tapPointName}</p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {(routeSnapshots.source === 'osrm' ? 'Road-snapped route' : 'Estimate route') + ' · ' + (routeSnapshots.loading ? 'updating route geometry...' : 'route geometry ready')}
-                  </p>
+          {mode !== 'pressure' && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Selected option</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{selectedResolvedOption?.label || 'No option selected'}</p>
+                    <p className="mt-1 text-sm text-slate-500">Tap point: {selectedResolvedOption?.tapPointName}</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {(routeSnapshots.source === 'osrm' ? 'Road-snapped route' : 'Estimate route') + ' · ' + (routeSnapshots.loading ? 'updating route geometry...' : 'route geometry ready')}
+                    </p>
+                  </div>
+                  <Building2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
                 </div>
-                <Building2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-              </div>
-            </Card>
-
-            <Card className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Network at a glance</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">1 CGS · 1 DRS · {SEGMENTS.length} segments</p>
-                  <p className="mt-1 text-sm text-slate-500">{ALL_CHAMBERS.length} valve chambers across the network, {CUSTOMERS.length} connected customers.</p>
-                </div>
-                <Wrench className="h-5 w-5 text-emerald-600" aria-hidden="true" />
-              </div>
-            </Card>
-          </div>
+              </Card>
+            </div>
+          )}
 
           <CollapsibleSection title="Existing customer base" subtitle={`${CUSTOMERS.length} industrial customers connected`} icon={Users}>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">

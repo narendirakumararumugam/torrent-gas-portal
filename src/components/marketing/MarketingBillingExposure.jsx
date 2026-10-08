@@ -13,6 +13,17 @@ function toCr(value) {
   return Number((value / 100).toFixed(2));
 }
 
+/* All profile amounts are stored in ₹ Lakhs; format consistently and guard against bad input */
+function formatLakhs(value) {
+  const amount = Number.isFinite(value) ? value : 0;
+  return `₹ ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L`;
+}
+
+function safePercentage(numerator, denominator) {
+  if (!denominator) return 0;
+  return (numerator / denominator) * 100;
+}
+
 function getExposureBand(profile) {
   const security = sumSecurity(profile);
   const utilization = security > 0 ? (profile.outstanding / security) * 100 : 0;
@@ -60,9 +71,11 @@ function MarketingBillingExposure({ onShowToast }) {
       return profile.outstanding <= security && (profile.outstanding / security) * 100 >= 80;
     }).length;
     const withinLimit = profiles.length - overExposed - nearLimit;
-    const avgUtilization = Math.round(
-      profiles.reduce((sum, profile) => sum + (profile.outstanding / sumSecurity(profile)) * 100, 0) / profiles.length,
-    );
+    const avgUtilization = profiles.length
+      ? Math.round(
+          profiles.reduce((sum, profile) => sum + safePercentage(profile.outstanding, sumSecurity(profile)), 0) / profiles.length,
+        )
+      : 0;
 
     return {
       totalCustomers: profiles.length,
@@ -77,7 +90,7 @@ function MarketingBillingExposure({ onShowToast }) {
   }, [profiles]);
 
   const selectedSecurity = selectedCustomer ? sumSecurity(selectedCustomer) : 0;
-  const selectedExposure = selectedCustomer ? (selectedCustomer.outstanding / selectedSecurity) * 100 : 0;
+  const selectedExposure = selectedCustomer ? safePercentage(selectedCustomer.outstanding, selectedSecurity) : 0;
 
   const exportSnapshot = () => {
     const content = [
@@ -117,20 +130,13 @@ function MarketingBillingExposure({ onShowToast }) {
 
   const detailRows = selectedCustomer
     ? [
-        { label: 'Current bill', value: `${formatCurrency(selectedCustomer.currentBill ?? 0)}` },
-        { 
-          label: 'Total Outstanding', 
-          value: `${formatCurrency(3382983)} L` 
-        },
-        { label: 'Current unbilled value', value: `${formatCurrency(3138552)}` },
-        { label: 'Overdue', value: `${formatCurrency(242000)}` },
+        { label: 'Current bill', value: formatLakhs(selectedCustomer.currentBill ?? 0) },
+        { label: 'Total Outstanding', value: formatLakhs(selectedCustomer.outstanding ?? 0) },
+        { label: 'Current unbilled value', value: formatLakhs(selectedCustomer.notYetDueAmount ?? 0) },
+        { label: 'Overdue', value: formatLakhs(selectedCustomer.overdueAmount ?? 0) },
         { label: 'Overdue invoices', value: selectedCustomer.overdueInvoicesCount },
       ]
     : [];
-
-  function formatCurrency(value) {
-  return `₹${Math.round(value).toLocaleString('en-IN')}`;
-}
 
   return (
     <div className="space-y-6">
@@ -390,7 +396,7 @@ function MarketingBillingExposure({ onShowToast }) {
                     <p className="text-sm font-semibold text-slate-900">Security utilization</p>
                     <p className="text-xs text-slate-500">Outstanding vs security held for the selected account.</p>
                   </div>
-                  <div className="text-sm font-semibold text-slate-700">{selectedExposure.toFixed(1)}%</div>
+                  <div className="text-sm font-semibold text-slate-700">{selectedExposure.toFixed(2)}%</div>
                 </div>
                 <div className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100">
                   <div className={`h-full rounded-full ${selectedCustomer.outstanding > selectedSecurity ? 'bg-rose-500' : selectedExposure >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{ width: `${Math.min(selectedExposure, 100)}%` }} />

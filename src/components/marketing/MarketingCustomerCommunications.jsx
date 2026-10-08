@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, BellRing, ChevronRight, Gauge, Mail, Radio, Search, Send, ShieldCheck, Sparkles, TimerReset, Users } from 'lucide-react';
+import { AlertTriangle, BellRing, ChevronRight, Gauge, Mail, Search, Send, ShieldCheck, Sparkles, TimerReset, Users } from 'lucide-react';
 import Card from '../common/Card';
 import SectionHeading from '../common/SectionHeading';
 import CollapsibleSection from '../common/CollapsibleSection';
@@ -24,17 +24,6 @@ const COMMUNICATION_SECTIONS = [
     cadence: 'As revised tariff is approved or effective date changes',
     channels: ['Email', 'WhatsApp', 'Portal notice'],
     templates: ['Tariff revision notice', 'Slab update summary', 'Price change acknowledgement'],
-  },
-  {
-    id: 'gcv',
-    title: 'GCV Communications',
-    icon: Radio,
-    eyebrow: 'Gas quality',
-    summary: 'Broadcast master GCV updates, effective dates, and calculation impact to the customer base.',
-    audience: 'Operations team, plant heads, and billing contacts',
-    cadence: 'Whenever master GCV is revised or validated',
-    channels: ['Email', 'SMS', 'Portal alert'],
-    templates: ['GCV update memo', 'Master GCV impact note', 'Effective date reminder'],
   },
   {
     id: 'consumption',
@@ -79,7 +68,7 @@ function buildDraftPreview(section, customer, masterGcv, effectiveGcvDate) {
     `Location: ${customer.location}`,
     `Current unbilled value: ₹ ${customer.currentUnbilledValue.toFixed(2)} L`,
     `Outstanding: ₹ ${customer.outstanding.toFixed(2)} L`,
-    `Master GCV: ${masterGcv} kcal/SCM`,
+    `Conversion reference: ${masterGcv} kcal/SCM`,
   ];
 
   switch (section.id) {
@@ -88,13 +77,6 @@ function buildDraftPreview(section, customer, masterGcv, effectiveGcvDate) {
         `Tariff communication for ${customer.name}`,
         `Effective date: ${effectiveGcvDate}`,
         'Please review the updated tariff circular and confirm acknowledgement.',
-        ...commonLines,
-      ].join('\n');
-    case 'gcv':
-      return [
-        `GCV communication for ${customer.name}`,
-        `Master GCV will be applied from ${effectiveGcvDate}.`,
-        'Please verify the revised calorific value impact for the next billing cycle.',
         ...commonLines,
       ].join('\n');
     case 'consumption':
@@ -125,6 +107,7 @@ function MarketingCustomerCommunications({ onShowToast }) {
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedCustomerId, setSelectedCustomerId] = useState(initialCustomers[0]?.id ?? null);
   const [activeSectionId, setActiveSectionId] = useState(COMMUNICATION_SECTIONS[0].id);
+  const [broadcastMessage, setBroadcastMessage] = useState('');
 
   const activeSection = useMemo(
     () => COMMUNICATION_SECTIONS.find((section) => section.id === activeSectionId) ?? COMMUNICATION_SECTIONS[0],
@@ -134,6 +117,11 @@ function MarketingCustomerCommunications({ onShowToast }) {
   const selectedCustomer = useMemo(
     () => customers.find((customer) => customer.id === selectedCustomerId) ?? customers[0] ?? null,
     [customers, selectedCustomerId],
+  );
+
+  const enabledRecipients = useMemo(
+    () => customers.filter((customer) => customer.dailyCommunication && isCommissioned(customer)),
+    [customers],
   );
 
   const filteredCustomers = useMemo(() => {
@@ -207,7 +195,30 @@ function MarketingCustomerCommunications({ onShowToast }) {
     showToast(`Daily mail dispatched to ${enabledCount} commissioned customers.`);
   };
 
+  const sendBroadcastCommunication = () => {
+    const message = broadcastMessage.trim();
+    if (!message) {
+      showToast('Type a message before sending it to enabled customers.');
+      return;
+    }
+
+    setCustomers((currentList) =>
+      currentList.map((customer) =>
+        customer.dailyCommunication && isCommissioned(customer)
+          ? { ...customer, lastSentDate: DISPATCH_TIMESTAMP }
+          : customer,
+      ),
+    );
+    showToast(`Broadcast sent to ${enabledRecipients.length} enabled customers.`);
+    setBroadcastMessage('');
+  };
+
   const sendSectionCommunication = () => {
+    if (activeSection.id === 'other') {
+      sendBroadcastCommunication();
+      return;
+    }
+
     if (!selectedCustomer) return;
     setCustomers((currentList) =>
       currentList.map((customer) => (customer.id === selectedCustomer.id ? { ...customer, lastSentDate: DISPATCH_TIMESTAMP } : customer)),
@@ -235,7 +246,7 @@ function MarketingCustomerCommunications({ onShowToast }) {
       <SectionHeading
         eyebrow="Marketing"
         title="Customer Communications"
-        description="Centralize tariff, GCV, consumption, daily mail, and other individual customer communications in one place."
+        description="Centralize tariff, consumption, daily mail, and other individual customer communications in one place."
         action={
           <button
             type="button"
@@ -456,23 +467,7 @@ function MarketingCustomerCommunications({ onShowToast }) {
               )}
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {selectedCustomerHighlights.map((item) => (
-                <div key={item.label} className={`rounded-2xl px-4 py-3 ${item.tone}`}>
-                  <p className="text-xs uppercase tracking-[0.16em] opacity-70">{item.label}</p>
-                  <p className="mt-1 text-base font-semibold">{item.value}</p>
-                </div>
-              ))}
-            </div>
-
             <div className="mt-4 rounded-2xl border border-slate-200 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{activeSection.title}</p>
-                  <p className="text-xs text-slate-500">{activeSection.summary}</p>
-                </div>
-                <activeSection.icon className="h-5 w-5 text-slate-400" />
-              </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {activeSection.channels.map((channel) => (
@@ -482,28 +477,59 @@ function MarketingCustomerCommunications({ onShowToast }) {
                 ))}
               </div>
 
-              <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-                <pre className="whitespace-pre-wrap font-sans leading-6">{previewDraft}</pre>
-              </div>
+                {activeSection.id === 'other' ? (
+                  <div className="mt-4 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Broadcast message</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        This message will be sent to all enabled customers in the current registry.
+                      </p>
+                    </div>
+                    <textarea
+                      value={broadcastMessage}
+                      onChange={(event) => setBroadcastMessage(event.target.value)}
+                      rows={5}
+                      placeholder="Type any notice, reminder, or ad-hoc message here..."
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs text-slate-500">Enabled recipients: {enabledRecipients.length}</p>
+                      <button
+                        type="button"
+                        onClick={sendSectionCommunication}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        <Mail className="h-4 w-4" />
+                        Send to enabled customers
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
+                      <pre className="whitespace-pre-wrap font-sans leading-6">{previewDraft}</pre>
+                    </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={handlePreview}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  <Mail className="h-4 w-4" />
-                  Preview draft
-                </button>
-                <button
-                  type="button"
-                  onClick={sendSectionCommunication}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  Send to customer
-                </button>
-              </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={handlePreview}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        <Mail className="h-4 w-4" />
+                        Preview draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={sendSectionCommunication}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                        Send to customer
+                      </button>
+                    </div>
+                  </>
+                )}
             </div>
 
             <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">

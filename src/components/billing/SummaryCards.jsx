@@ -42,11 +42,13 @@ function SummaryCards({ currentBill, receivedPayment, pendingVerification, lateI
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => (
         <Card key={card.label} className="p-5">
-          <div className="flex items-center gap-2">
+          <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100">
               <card.icon className={`h-4.5 w-4.5 ${card.tone}`} aria-hidden="true" />
             </div>
-            <p className="text-xs font-medium text-slate-500">{card.label}</p>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500">{card.label}</p>
+            </div>
           </div>
           <p className="mt-3 text-2xl font-bold text-blue-950">{card.value}</p>
           <p className="mt-1 text-xs text-slate-500">{card.detail}</p>

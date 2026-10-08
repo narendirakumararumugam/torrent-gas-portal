@@ -2,6 +2,44 @@ import React from 'react';
 import Card from '../common/Card';
 import { formatINR, getInvoiceTotals } from '../../utils/billingFormat';
 
+function getSlabTone(label) {
+  const normalizedLabel = String(label).toLowerCase();
+
+  if (normalizedLabel.includes('non-mgo')) {
+    return {
+      row: 'bg-amber-50/40',
+      label: 'text-amber-700',
+      amount: 'text-amber-800',
+      chip: 'bg-amber-100 text-amber-700 ring-amber-200',
+    };
+  }
+
+  if (normalizedLabel.includes('excess')) {
+    return {
+      row: 'bg-rose-50/40',
+      label: 'text-rose-700',
+      amount: 'text-rose-800',
+      chip: 'bg-rose-100 text-rose-700 ring-rose-200',
+    };
+  }
+
+  if (normalizedLabel.includes('mgo')) {
+    return {
+      row: 'bg-emerald-50/40',
+      label: 'text-emerald-700',
+      amount: 'text-emerald-800',
+      chip: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+    };
+  }
+
+  return {
+    row: '',
+    label: 'text-slate-800',
+    amount: 'text-slate-800',
+    chip: 'bg-slate-100 text-slate-600 ring-slate-200',
+  };
+}
+
 function InvoiceBreakdownTable({
   invoiceBreakdown,
   cycleLabel,
@@ -31,11 +69,13 @@ function InvoiceBreakdownTable({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {invoiceBreakdown.rows.map((row) => (
-              <tr key={row.label}>
-                <td className="px-5 py-3 font-medium text-slate-800">{row.label}</td>
+              <tr key={row.label} className={getSlabTone(row.label).row}>
+                <td className={`px-5 py-3 font-medium ${getSlabTone(row.label).label}`}>
+                  <span className="ml-2 align-middle">{row.label}</span>
+                </td>
                 <td className="px-5 py-3 text-slate-500">{row.qty}</td>
                 <td className="px-5 py-3 text-slate-500">{row.rate}</td>
-                <td className="px-5 py-3 text-right text-slate-800">{formatINR(row.amount)}</td>
+                <td className={`px-5 py-3 text-right font-semibold ${getSlabTone(row.label).amount}`}>{formatINR(row.amount)}</td>
               </tr>
             ))}
             <tr>

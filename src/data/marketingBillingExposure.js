@@ -3,9 +3,17 @@ import { availablePaymentSecurity, billingCycles, lastClearedPayment, pendingVer
 
 const wheelsIndiaCustomer = getCustomer('CUST-WIL01');
 const latestBillingCycle = billingCycles[billingCycles.length - 1];
-const wheelsIndiaCurrentBill = Number((latestBillingCycle.invoiced / 100000).toFixed(2));
-const wheelsIndiaOverdueAmount = Number(((latestBillingCycle.invoiced - latestBillingCycle.paid) / 100000).toFixed(2));
-const wheelsIndiaSecurity = Number((availablePaymentSecurity / 100000).toFixed(2));
+
+/* Wheels India customer-master fields (outstanding, currentUnbilledValue, overdueAmount) are
+   stored in absolute rupees; every other field on this profile (and all downstream security
+   coverage math) is expressed in ₹ Lakhs, so they must be converted here to stay unit-consistent. */
+const toLakhs = (rupees) => Number(((rupees ?? 0) / 100000).toFixed(2));
+
+const wheelsIndiaCurrentBill = toLakhs(latestBillingCycle.invoiced);
+const wheelsIndiaOutstanding = toLakhs(wheelsIndiaCustomer.outstanding);
+const wheelsIndiaOverdueAmount = toLakhs(wheelsIndiaCustomer.overdueAmount);
+const wheelsIndiaUnbilledValue = toLakhs(wheelsIndiaCustomer.currentUnbilledValue);
+const wheelsIndiaSecurity = toLakhs(availablePaymentSecurity);
 
 function buildWheelsIndiaBillingProfile() {
   return {
@@ -16,9 +24,9 @@ function buildWheelsIndiaBillingProfile() {
     industry: wheelsIndiaCustomer.industry,
     segment: 'Strategic',
     currentBill: wheelsIndiaCurrentBill,
-    outstanding: wheelsIndiaCustomer.outstanding,
+    outstanding: wheelsIndiaOutstanding,
     overdueAmount: wheelsIndiaOverdueAmount,
-    notYetDueAmount: wheelsIndiaCustomer.currentUnbilledValue ?? 0,
+    notYetDueAmount: wheelsIndiaUnbilledValue,
     overdueInvoicesCount: 1,
     oldestOutstandingDays: 0,
     paymentSecurityDetails: [{ label: 'Available Security', amount: wheelsIndiaSecurity }],

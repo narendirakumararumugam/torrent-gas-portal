@@ -35,4 +35,5 @@ export const TARIFF_HISTORY_DATA = [
   { period: 'Aug 26 (FN2)', mgo: 1725.12, nonMgo: 1802.97, excess: 1983.27 },
   { period: 'Sep 26 (FN1)', mgo: 1725.12, nonMgo: 1802.97, excess: 1983.27 },
   { period: 'Sep 26 (FN2)', mgo: 1725.12, nonMgo: 1802.97, excess: 1983.27 },
+  { period: 'Oct 26 (FN1)', mgo: 1725.12, nonMgo: 1802.97, excess: 1983.27 },
 ];

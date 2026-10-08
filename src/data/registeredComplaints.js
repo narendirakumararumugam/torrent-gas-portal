@@ -1,15 +1,10 @@
-export const registeredComplaints = [
+import { CUSTOMERS } from './existing-customers.data.js';
+
+const complaintSeeds = [
   {
     id: 'CMP-2609-1107',
-    customerName: 'Apex Foods Pvt Ltd',
-    customerId: 'CUST-APX-101',
-    contactName: 'K. Meena',
-    email: 'meena@apexfoods.example',
-    phone: '+91 98401 22011',
-    location: 'Ambattur Industrial Estate',
-    accountManager: 'R. Suresh',
-    category: 'Gas Supply',
     subject: 'Night shift pressure drop on line 2',
+    category: 'Gas Supply',
     priority: 'Critical',
     raisedOn: '26 Sep 2026, 09:40 AM',
     status: 'Open',
@@ -23,15 +18,8 @@ export const registeredComplaints = [
   },
   {
     id: 'CMP-2609-1044',
-    customerName: 'Metro Textiles',
-    customerId: 'CUST-MTR-212',
-    contactName: 'R. Sangeetha',
-    email: 'sangeetha@metrotextiles.example',
-    phone: '+91 94444 12880',
-    location: 'Guindy',
-    accountManager: 'P. Arun',
-    category: 'Billing',
     subject: 'Disputed demand charge on current invoice',
+    category: 'Billing',
     priority: 'High',
     raisedOn: '25 Sep 2026, 03:15 PM',
     status: 'In Progress',
@@ -46,15 +34,8 @@ export const registeredComplaints = [
   },
   {
     id: 'CMP-2608-0874',
-    customerName: 'Nova Ceramics',
-    customerId: 'CUST-NVC-337',
-    contactName: 'S. Anitha',
-    email: 'anitha@novaceramics.example',
-    phone: '+91 98677 33440',
-    location: 'Sriperumbudur',
-    accountManager: 'V. Priya',
-    category: 'Meter',
     subject: 'Intermittent meter reading mismatch',
+    category: 'Meter',
     priority: 'Medium',
     raisedOn: '22 Sep 2026, 01:05 PM',
     status: 'Resolved',
@@ -71,15 +52,8 @@ export const registeredComplaints = [
   },
   {
     id: 'CMP-2608-0541',
-    customerName: 'Harbor Chemicals',
-    customerId: 'CUST-HBC-551',
-    contactName: 'P. Ravi',
-    email: 'ravi@harborchemicals.example',
-    phone: '+91 97888 55412',
-    location: 'Madhavaram',
-    accountManager: 'N. Kavya',
-    category: 'Service',
     subject: 'Valve calibration and odour inspection follow-up',
+    category: 'Service',
     priority: 'Low',
     raisedOn: '18 Sep 2026, 10:15 AM',
     status: 'Closed',
@@ -96,15 +70,8 @@ export const registeredComplaints = [
   },
   {
     id: 'CMP-2607-0322',
-    customerName: 'Bluewave Glass',
-    customerId: 'CUST-BWG-781',
-    contactName: 'M. Selvi',
-    email: 'selvi@bluewaveglass.example',
-    phone: '+91 98412 77331',
-    location: 'Poonamallee',
-    accountManager: 'D. Arul',
-    category: 'Pipeline',
     subject: 'Temporary shutdown for line inspection',
+    category: 'Pipeline',
     priority: 'High',
     raisedOn: '15 Sep 2026, 08:30 AM',
     status: 'On Hold',
@@ -118,3 +85,18 @@ export const registeredComplaints = [
     ],
   },
 ];
+
+export const registeredComplaints = complaintSeeds.map((complaint, index) => {
+  const customer = CUSTOMERS[index % CUSTOMERS.length];
+
+  return {
+    ...complaint,
+    customerName: customer.name,
+    customerId: customer.id,
+    contactName: customer.contact,
+    email: customer.email,
+    phone: customer.phone,
+    location: customer.location,
+    accountManager: customer.accountManager,
+  };
+});

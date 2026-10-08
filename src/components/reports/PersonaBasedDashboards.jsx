@@ -668,7 +668,7 @@ function ManagementView({ audience }) {
           className="border-rose-200 bg-rose-50"
           badge={
             <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-700">
-              Due ₹2,44,431
+              Due {formatCurrency(outstandingLatest)}
             </span>
           }
           tone="text-rose-700"
@@ -718,7 +718,7 @@ function ManagementView({ audience }) {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-3 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Actual vs Contracted MGO</p>
-            <p className={`mt-1 text-2xl font-semibold ${mgoCompliant ? 'text-emerald-700' : 'text-rose-600'}`}>Actual 244.7 MMBTU</p>
+            <p className={`mt-1 text-2xl font-semibold ${mgoCompliant ? 'text-emerald-700' : 'text-rose-600'}`}>Actual 227.3 MMBTU</p>
             <p className="mt-1 text-sm font-semibold text-slate-700">Contracted 270 MMBTU</p>
             <p className="mt-1 text-xs leading-5 text-slate-600">{mgoCompliant ? 'Monthly average meets the 90% DCQ obligation.' : `Average is ${formatDecimal(mgoShortfall, 1)} MMBTU/day below obligation.`}</p>
           </div>

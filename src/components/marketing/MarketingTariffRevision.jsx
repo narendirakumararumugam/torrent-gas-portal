@@ -13,8 +13,12 @@ const INITIAL_MASTER_TARIFF = {
   effectiveFrom: '2026-04-01',
 };
 
+const SCM_PER_MMBTU = 9300 / 252000;
+
 function formatPrice(value) {
-  return `₹ ${Number(value).toFixed(2)} / SCM`;
+  const mmbtuPrice = Number(value);
+  const scmPrice = mmbtuPrice * SCM_PER_MMBTU;
+  return `₹ ${mmbtuPrice.toFixed(2)} / MMBTU (₹ ${scmPrice.toFixed(2)} / SCM)`;
 }
 
 function buildRevisionGroups(records) {
@@ -155,7 +159,7 @@ function MarketingTariffRevision({ onShowToast }) {
       '',
       ...revisions.flatMap((revision) => [
         `Effective date: ${revision.effectiveDate}`,
-        ...revision.rows.map((row) => `${row.slab}: INR ${row.pricePerUnit} / SCM`),
+        ...revision.rows.map((row) => `${row.slab}: ${formatPrice(row.pricePerUnit)}`),
         '',
       ]),
     ].join('\n');
@@ -344,7 +348,7 @@ function MarketingTariffRevision({ onShowToast }) {
 
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <label className="block text-sm font-medium text-slate-700">
-                MGO (₹ / SCM)
+                MGO (₹ / MMBTU)
                 <input
                   type="number"
                   value={masterTariff.mgo}
@@ -353,7 +357,7 @@ function MarketingTariffRevision({ onShowToast }) {
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                NON-MGO (₹ / SCM)
+                NON-MGO (₹ / MMBTU)
                 <input
                   type="number"
                   value={masterTariff.nonMgo}
@@ -362,7 +366,7 @@ function MarketingTariffRevision({ onShowToast }) {
                 />
               </label>
               <label className="block text-sm font-medium text-slate-700">
-                Excess (₹ / SCM)
+                Excess (₹ / MMBTU)
                 <input
                   type="number"
                   value={masterTariff.excess}
@@ -576,15 +580,15 @@ function MarketingTariffRevision({ onShowToast }) {
                   <p className="mb-3 text-sm text-slate-500">Leave field empty or override specific categories. Unspecified fields inherit from Master.</p>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <label className="block text-sm font-medium text-slate-700">
-                      MGO Override
+                        MGO Override (₹ / MMBTU)
                       <input type="number" value={custEditMgo} onChange={(event) => setCustEditMgo(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-emerald-600" />
                     </label>
                     <label className="block text-sm font-medium text-slate-700">
-                      NON-MGO Override
+                        NON-MGO Override (₹ / MMBTU)
                       <input type="number" value={custEditNonMgo} onChange={(event) => setCustEditNonMgo(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-emerald-600" />
                     </label>
                     <label className="block text-sm font-medium text-slate-700">
-                      Excess Override
+                        Excess Override (₹ / MMBTU)
                       <input type="number" value={custEditExcess} onChange={(event) => setCustEditExcess(event.target.value)} className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none transition focus:border-emerald-600" />
                     </label>
                   </div>
@@ -649,7 +653,7 @@ function MarketingTariffRevision({ onShowToast }) {
                     <div key={revision.effectiveDate} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2">
                       <div>
                         <p className="text-sm font-semibold text-slate-900">Effective {revision.effectiveDate}</p>
-                        <p className="text-xs text-slate-500">Average rate: INR {revision.averageRate} / SCM</p>
+                        <p className="text-xs text-slate-500">Average rate: {formatPrice(revision.averageRate)}</p>
                       </div>
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{revision.rows.length} slabs</span>
                     </div>

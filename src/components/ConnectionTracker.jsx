@@ -54,7 +54,7 @@ function SummaryPanel() {
           <CalendarDays className="h-5 w-5 text-emerald-600" />
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-400">Commissioning Date</p>
+          <p className="text-xs font-medium text-slate-400">Expected Commissioning Date</p>
           <p className="text-lg font-bold text-[#2D3748]">{trackerEta}</p>
         </div>
       </div>

@@ -22,7 +22,7 @@ function CommercialExposureBanner({ exposure }) {
     <>
       <Card className={`p-5 ${exposure.isDeficient ? 'border-rose-300 ring-1 ring-rose-200' : ''}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Real-Time Exposure</p>
+          <p className="pt-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Real-Time Exposure</p>
           {exposure.isDeficient && (
             <span className="flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-600/20">
               <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />

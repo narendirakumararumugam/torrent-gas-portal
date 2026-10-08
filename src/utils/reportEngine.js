@@ -283,7 +283,7 @@ function buildInsights({ total, avg, percentOfDCQ, anomalies, compareTotal }) {
     insights.push({
       type: percentOfDCQ > 100 ? 'suggestion' : 'kpi',
       severity: percentOfDCQ > 100 ? 'medium' : 'low',
-      title: `${percentOfDCQ}% of MGQ utilised`,
+      title: `${percentOfDCQ}% of MGO utilised`,
       detail:
         percentOfDCQ > 100
           ? 'Consumption exceeds the minimum guaranteed quantity - review for excess-slab charges.'
@@ -385,7 +385,7 @@ function computeConsumptionTimeseries(params) {
   const anomalies = [];
   series.forEach((s) => {
     s.anomalies.forEach((flag, idx) => {
-      if (flag) anomalies.push({ title: `Spike on ${s.label}`, detail: `${labels[idx]}: ${s.data[idx].toLocaleString('en-IN')} SCM - above expected range for ${s.label}.`, severity: 'high', meterId: s.meterId, label: labels[idx] });
+      if (flag) anomalies.push({ title: `Spike on ${s.label}`, detail: `${labels[idx]}: ${s.data[idx].toLocaleString('en-IN')} SCM - above MDCQ range for ${s.label}.`, severity: 'high', meterId: s.meterId, label: labels[idx] });
     });
   });
 
@@ -491,15 +491,21 @@ function computePriceSlab(params) {
 function generatedPriceSlabSeries(from, to) {
   const buckets = enumerateBuckets(from, to, 'daily');
   if (!buckets.length) return dailySlabDistribution;
+
+  const splitIntoSlabs = (total) => {
+    const mgo = Math.min(total, 300);
+    const nonMgo = Math.min(Math.max(total - 300, 0), 200);
+    const excess = Math.max(total - 500, 0);
+    return { mgo: round2(mgo), nonMgo: round2(nonMgo), excess: round2(excess) };
+  };
+
   return buckets.map((iso) => {
     const dateIso = iso.slice(0, 10);
     const rand = seededRandom(`priceslab-${dateIso}`);
-    const dayOfMonth = new Date(iso).getUTCDate();
-    const total = DCQ_MMBTU * (0.75 + rand() * 0.5) * (dayOfMonth % 9 === 0 ? 1.8 : 1);
-    const mgo = round2(Math.min(total, 300));
-    const nonMgo = round2(Math.min(Math.max(total - 300, 0), 200));
-    const excess = round2(Math.max(total - 500, 0));
-    return { date: dateIso, mgo, nonMgo, excess };
+    const peakBoost = rand() > 0.78 ? 1.22 + rand() * 0.28 : 1;
+    const baseTotal = DCQ_MMBTU * (0.76 + rand() * 0.42);
+    const total = round2(Math.max(baseTotal * peakBoost, 180));
+    return { date: dateIso, ...splitIntoSlabs(total) };
   });
 }
 

@@ -314,7 +314,6 @@ export const DEFAULT_TARGET = { lat: 13.4138, lng: 80.121, name: 'Prospective cu
 export function recommendDiameterMm(distanceKm, flowScmh) {
   if (distanceKm <= 0.6 && flowScmh <= 350) return 63;
   if (distanceKm <= 1.5 && flowScmh <= 600) return 90;
-  if (distanceKm <= 3 && flowScmh <= 900) return 110;
   return 125;
 }
 

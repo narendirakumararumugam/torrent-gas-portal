@@ -35,7 +35,7 @@ function PaymentDelayChart({ ledger }) {
   return (
     <Card className="p-5">
       <p className="text-sm font-semibold text-blue-950">Payment Delay Distribution</p>
-      <p className="text-xs text-slate-500">Days delayed beyond the standard 5 business day grace period</p>
+      <p className="text-xs text-slate-500">Days delayed beyond the standard 5 business day</p>
       <div className="mt-4" style={{ height: 280 }}>
         <Bar data={data} options={options} />
       </div>
