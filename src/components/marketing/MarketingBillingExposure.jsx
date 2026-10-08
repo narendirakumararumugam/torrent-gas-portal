@@ -64,7 +64,6 @@ function MarketingBillingExposure({ onShowToast }) {
   const summary = useMemo(() => {
     const totalOutstanding = profiles.reduce((sum, profile) => sum + profile.outstanding, 0);
     const totalSecurity = profiles.reduce((sum, profile) => sum + sumSecurity(profile), 0);
-    const overdueTotal = profiles.reduce((sum, profile) => sum + profile.overdueAmount, 0);
     const overExposed = profiles.filter((profile) => profile.outstanding > sumSecurity(profile)).length;
     const nearLimit = profiles.filter((profile) => {
       const security = sumSecurity(profile);
@@ -81,7 +80,6 @@ function MarketingBillingExposure({ onShowToast }) {
       totalCustomers: profiles.length,
       totalOutstanding: toCr(totalOutstanding),
       totalSecurity: toCr(totalSecurity),
-      overdueTotal: toCr(overdueTotal),
       overExposed,
       nearLimit,
       withinLimit,
@@ -100,7 +98,6 @@ function MarketingBillingExposure({ onShowToast }) {
       `Total customers: ${summary.totalCustomers}`,
       `Total outstanding: ₹ ${summary.totalOutstanding} Cr`,
       `Total security: ₹ ${summary.totalSecurity} Cr`,
-      `Overdue: ₹ ${summary.overdueTotal} Cr`,
       '',
       ...filteredProfiles.map((profile) => {
         const band = getExposureBand(profile);
@@ -133,8 +130,6 @@ function MarketingBillingExposure({ onShowToast }) {
         { label: 'Current bill', value: formatLakhs(selectedCustomer.currentBill ?? 0) },
         { label: 'Total Outstanding', value: formatLakhs(selectedCustomer.outstanding ?? 0) },
         { label: 'Current unbilled value', value: formatLakhs(selectedCustomer.notYetDueAmount ?? 0) },
-        { label: 'Overdue', value: formatLakhs(selectedCustomer.overdueAmount ?? 0) },
-        { label: 'Overdue invoices', value: selectedCustomer.overdueInvoicesCount },
       ]
     : [];
 
@@ -161,7 +156,6 @@ function MarketingBillingExposure({ onShowToast }) {
           ['Total Customers', summary.totalCustomers, <Users className="h-5 w-5 text-sky-600" />],
           ['Outstanding', `₹ ${summary.totalOutstanding} Cr`, <Banknote className="h-5 w-5 text-rose-600" />],
           ['Security', `₹ ${summary.totalSecurity} Cr`, <ShieldCheck className="h-5 w-5 text-emerald-600" />],
-          ['Overdue', `₹ ${summary.overdueTotal} Cr`, <AlertTriangle className="h-5 w-5 text-amber-600" />],
         ].map(([label, value, icon]) => (
           <Card key={label} className="p-4">
             <div className="flex items-center justify-between gap-3">
@@ -181,7 +175,6 @@ function MarketingBillingExposure({ onShowToast }) {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="text-xl font-semibold text-slate-900">Portfolio risk breakdown</h3>
-                <p className="mt-1 text-sm text-slate-500">Search customers, filter by exposure band, and review collection risk at a glance.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500">
